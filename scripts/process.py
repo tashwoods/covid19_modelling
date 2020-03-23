@@ -19,15 +19,50 @@ if __name__ == '__main__':
   parser.add_argument('-total_cases_var_name', '--total_cases_var_name', type = str, dest = 'total_cases_var_name', default = 'total_cases', help = 'name of total cases variable name in input file')
   parser.add_argument('-cv_day_thres', '--cv_day_thres', type = int, dest = 'cv_day_thres', default = 3, help = 'total number of cases to consider it the first day of cv19')
   parser.add_argument('-tick_font_size', '--tick_font_size', type = int, dest = 'tick_font_size', default = 8, help = 'size of tick labels in plots')
+  parser.add_argument('-name_total_cases', '--name_total_cases', type = str, dest = 'name_total_cases', default = 'total_cases', help = 'name of total case variable in country level file')
+  parser.add_argument('-name_total_deaths', '--name_total_deaths', type = str, dest = 'name_total_deaths', default = 'total_deaths', help = 'name of total deaths variable in country level file')
   args = parser.parse_args()
 
   #Make output data directory and get input data
   make_output_dir(args.output_dir)
   full_dataframe = pd.read_csv(args.input_file, parse_dates = [args.date_name])
 
-
   state_dataframe = pd.read_csv(args.state_file, parse_dates = [args.date_name])
   state_dataframe.fillna(0, inplace=True)
+  state_dataframe = state_dataframe.rename(columns = {'state': 'location', 'positive': 'new_cases', 'death': 'new_deaths', 'total': 'total_new_tests'})
+
+  states = ['WA', 'CA', 'AL', 'CO']
+  state_var = ['new_deaths', 'new_cases', 'total_new_tests', 'total_deaths']
+  state_dataframes_list = list()
+  print(state_dataframe)
+  for state in states:
+    if len(state.strip()) > 0:
+      state = state.rstrip()
+      print(state)
+      this_state_df = state_dataframe[state_dataframe[args.country_var_name].str.match(state)]
+      this_state_df = this_state_df.sort_values(by=[args.date_name])
+      this_state_df[args.name_total_cases] = this_state_df['new_cases'].cumsum()
+      this_state_df[args.name_total_deaths] = this_state_df['new_deaths'].cumsum()
+      this_state_df['total_tests'] = this_state_df['total_new_tests'].cumsum()
+      print(this_state_df)
+
+      state_dataframes_list.append(this_state_df)
+
+  for state_df in state_dataframes_list:
+    print(state_df)
+    for var in state_var:
+      for state in state_dataframes_list:
+        plt.plot(state[args.date_name], state[var], label = state[args.country_var_name].iloc[0])
+      plt.title(var + ' vs. ' + args.date_name)
+      plt.xlabel(args.date_name)
+      plt.ylabel(var)
+      plt.legend()
+      plt.xticks(fontsize = args.tick_font_size)
+      plt.savefig(args.output_dir + '/State' + var + '_unmodified_overlay.pdf')
+      plt.close('all')
+
+   
+
   print(full_dataframe)
   print(state_dataframe)
   #Process make country dataframe and objects
@@ -71,9 +106,6 @@ if __name__ == '__main__':
         country = country[start_date:].reset_index()
         country_name = country[args.country_var_name].iloc[0]
         population = CountryInfo(country_name).population()
-        print(country_name) 
-        print(population)
-        print(country.index.values)
         plt.plot(country.index.values, 100*(country[var]/population), label = country[args.country_var_name].iloc[0])
       plt.title('Normalized Date-Shifted ' + var + ' vs. ' + args.date_name)
       plt.xlabel('COVID-19 Outbreak Days')
