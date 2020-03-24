@@ -1,2 +1,12 @@
-data from:
+Country-levl data from:
 https://covid.ourworldindata.org/data/ecdc/full_data.csv
+
+State-level data from:
+https://www.kaggle.com/sudalairajkumar/covid19-in-usa/metadata
+date - date of observation
+state - US state 2 digit code
+positive - number of tests with positive results
+negative - number of tests with negative results
+pending - number of test with pending results
+death - number of deaths
+total - total number of tests
