@@ -1,11 +1,21 @@
 from imported_libraries import *
 
-def get_first_cv_day(country):
-  var_name = args.name_total_cases
-  first_cv_day = country[country[args.name_total_cases] > args.cv_day_thres].iloc[0].name
-  first_index = country.index.get_loc(first_cv_day)
-  print(first_index)
-  return(first_index)
+def get_first_cv_day(country_object):
+  country = country_object.df
+  print(country)
+  population = country_object.population
+  cv_thres = population * (1/args.cv_day_thres) #will give first day that one in cv_day_thres people in country affected via predict var
+  cv_thres = 10
+  print(country_object.name)
+  print(cv_thres)
+  truncated_list = country[country[args.predict_var] > cv_thres]
+  if len(truncated_list) > 0:
+    first_cv_day = truncated_list.iloc[0].name
+    first_index = country.index.get_loc(first_cv_day)
+    return(first_index)
+  else:
+    return(-1)
+
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description = 'arg parser for process.py')
@@ -23,10 +33,12 @@ if __name__ == '__main__':
   parser.add_argument('-name_total_deaths', '--name_total_deaths', type = str, dest = 'name_total_deaths', default = 'total_deaths', help = 'name of total deaths variable in country level file')
   parser.add_argument('-name_new_cases', '--name_new_cases', type = str, dest = 'name_new_cases', default = 'new_cases', help = 'name of variable in country level file for new cases per day')
   parser.add_argument('-name_new_deaths', '--name_new_deaths', type = str, dest = 'name_new_deaths', default = 'new_deaths', help = 'name of variable in country level file for new deaths per day')
+  parser.add_argument('-predict_var', '--predict_var', type = str, dest = 'predict_var', default = 'total_deaths', help = 'number of variable used to determine where to start counting cv days, should be whichever variable in your dataset you believe is the most accurate')
   #Analysis Variables
-  parser.add_argument('-cv_day_thres', '--cv_day_thres', type = int, dest = 'cv_day_thres', default = 3, help = 'total number of cases to consider it the first day of cv19')
+  parser.add_argument('-cv_day_thres', '--cv_day_thres', type = int, dest = 'cv_day_thres', default = 100, help = 'total number of cases to consider it the first day of cv19')
   #Aesthetics : )
   parser.add_argument('-tick_font_size', '--tick_font_size', type = int, dest = 'tick_font_size', default = 8, help = 'size of tick labels in plots')
+  parser.add_argument('-plot_y_scale', '--plot_y_scale', type = str, dest = 'plot_y_scale', default = 'log', help = 'scale for y axis, set to linear, log, etc')
   args = parser.parse_args()
 
   #Make output data directory and get input data
@@ -35,7 +47,7 @@ if __name__ == '__main__':
   #Obtain country level dataframe
   full_dataframe = pd.read_csv(args.input_file, parse_dates = [args.date_name])
   #Obtain state level dataframe
-  states = ['WA', 'CA', 'AL', 'CO']
+  states = ['WA', 'CA', 'AL', 'CO', 'NY']
   populations = [7800000, 39940000, 4910000, 5800000]
   state_var = ['new_deaths', 'new_cases', 'total_new_tests', 'total_deaths']
   state_dataframe = pd.read_csv(args.state_file, parse_dates = [args.date_name])
@@ -70,8 +82,9 @@ if __name__ == '__main__':
     plt.xlabel(args.date_name)
     plt.ylabel(var)
     plt.legend()
+    plt.yscale(args.plot_y_scale)
     plt.xticks(fontsize = args.tick_font_size)
-    plt.savefig(args.output_dir + '/State' + var + '_unmodified_overlay.pdf')
+    plt.savefig(args.output_dir + '/State' + var + '_unmodified_overlay.png')
     plt.close('all')
 
 
@@ -95,9 +108,10 @@ if __name__ == '__main__':
       plt.title(var + ' vs. ' + args.date_name)
       plt.xlabel(args.date_name)
       plt.ylabel(var)
+      plt.yscale(args.plot_y_scale)
       plt.legend()
       plt.xticks(fontsize = args.tick_font_size)
-      plt.savefig(args.output_dir + '/' + var + '_unmodified_overlay.pdf')
+      plt.savefig(args.output_dir + '/' + var + '_unmodified_overlay.png')
       plt.close('all')
 
       #Plot normalized plots without creating same start date
@@ -109,23 +123,43 @@ if __name__ == '__main__':
       plt.xlabel(args.date_name)
       plt.ylabel('Percent of country population: ' + var)
       plt.legend()
+      plt.yscale(args.plot_y_scale)
       plt.xticks(fontsize = args.tick_font_size)
-      plt.savefig(args.output_dir + '/' + var + '_normalized_overlay.pdf')
+      plt.savefig(args.output_dir + '/' + var + '_normalized_overlay.png')
       plt.close('all')
 
     #Plot normalized plots with dates aligned
     for var in args.time_series_variables:
       for area in area_objects_list:
         area_df = area.df
-        start_date = get_first_cv_day(area_df)
-        area_df = area_df[start_date:].reset_index()
-        plt.plot(area_df.index.values, 100*(area_df[var]/area.population), label = area.name)
+        start_date = get_first_cv_day(area)
+        if start_date != -1:
+          area_df = area_df[start_date:].reset_index()
+          plt.plot(area_df.index.values, 100*(area_df[var]/area.population), label = area.name)
       plt.title('Normalized Date-Shifted ' + var + ' vs. ' + args.date_name)
+      plt.yscale(args.plot_y_scale)
       plt.xlabel('COVID-19 Outbreak Days')
       plt.ylabel('Percent of country population: ' + var)
 
       plt.legend()
-      plt.savefig(args.output_dir + '/' + var + '_normalized_date_shifted_overlay.pdf')
+      plt.savefig(args.output_dir + '/' + var + '_normalized_date_shifted_overlay.png')
+      plt.close('all')
+
+    #Plot normalized plots with dates aligned
+    for var in args.time_series_variables:
+      for area in area_objects_list:
+        area_df = area.df
+        start_date = get_first_cv_day(area)
+        if start_date != -1:
+          area_df = area_df[start_date:].reset_index()
+          plt.plot(area_df.index.values, area_df[var], label = area.name)
+      plt.title('Normalized Date-Shifted ' + var + ' vs. ' + args.date_name)
+      plt.yscale(args.plot_y_scale)
+      plt.xlabel('COVID-19 Outbreak Days')
+      plt.ylabel('Percent of country population: ' + var)
+
+      plt.legend()
+      plt.savefig(args.output_dir + '/' + var + '_unnormalized_date_shifted_overlay.png')
       plt.close('all')
       
 
