@@ -12,9 +12,10 @@ def get_nice_var_name(var):
 
 def plot(area_objects_list, args, plot_type):
   #Make Plot Line Colors Pretty 
-  col = plt.cm.twilight_shifted(np.linspace(0,1,round(len(area_objects_list)/2)+2))
+  col = plt.cm.jet(np.linspace(0,1,round(len(area_objects_list)/2)+2))
   line_cycler = cycler('color', col,) * cycler('linestyle', ['-', ':'])
   plt.rc('axes', prop_cycle = line_cycler)
+  growth_rates = [1.35]
   for var in args.time_series_variables:
     for i in range(len(area_objects_list)):
       area = area_objects_list[i]
@@ -26,38 +27,59 @@ def plot(area_objects_list, args, plot_type):
         plt.ylabel(get_nice_var_name(var))
       elif plot_type == 'per_capita':
         plt.title(get_nice_var_name(var) + ' per Capita vs. ' + args.n_date_name)
-        plt.plot(area_df[args.date_name], 100*(area_df[var]/area.population), label = area.name)
+        plt.plot(area_df[args.date_name], (area_df[var].div(area.population)*args.cv_day_thres), label = area.name)
         plt.xlabel(args.n_date_name)
         plt.ylabel(get_nice_var_name(var) + ' per Capita')
       elif plot_type == 'unmodified_covid_days':
-        plt.title(get_nice_var_name(var) + ' vs. ' + covid_outbreak_days_name)
-        start_date = get_first_cv_day(area)
+        start_date = get_first_cv_day(area, 'notscaled')
         if start_date != -1:
           area_df = area_df[start_date:].reset_index()
           plt.plot(area_df.index.values, area_df[var], label = area.name)
-        plt.xlabel(covid_outbreak_days_name)
+        plt.xlabel('Days since 10 deaths')
         plt.ylabel(get_nice_var_name(var))
+        x_max = len(area_df.index.values)+10
+        x = np.linspace(0,x_max, x_max)
+        plt.xlim(0,40)
+        plt.ylim(10,100000)
       elif plot_type == 'per_capita_covid_days':
         plt.title(get_nice_var_name(var) + ' vs. ' + covid_outbreak_days_name)
-        start_date = get_first_cv_day(area)
+        start_date = get_first_cv_day(area, 'scaled')
         if start_date != -1:
           area_df = area_df[start_date:].reset_index()
-          plt.plot(area_df.index.values, 100*(area_df[var]/area.population), label = area.name)
+          plt.plot(area_df.index.values, area_df[var].div(area.population)*args.cv_day_thres, label = area.name)
         plt.xlabel(covid_outbreak_days_name)
         plt.ylabel(get_nice_var_name(var) + ' per Capita')
+        plt.xlim(1,40)
+        plt.ylim(1,1000)
+        x_max = len(area_df.index.values)+10
+        x = np.linspace(0,x_max, x_max)
+
+    if plot_type == 'unmodified_covid_days':
+      for i in growth_rates:
+        y = 10*(i)**x
+        plt.plot(x, y, '--b', label = str(i) + ' Daily Growth')
+    if plot_type == 'per_capita_covid_days':
+      for i in growth_rates:
+        y = ((i)**x)/args.cv_day_thres
+        #plt.plot(x, y, '--b', label = str(i) + ' Daily Growth')
 
     plt.yscale(args.plot_y_scale)
-    plt.legend()
+    plt.legend(prop = {'size': 6})
     plt.xticks(fontsize = args.tick_font_size)
     plt.savefig(args.output_dir + '/' + var + '_' + plot_type + '.png')
     plt.close('all')
 
-def get_first_cv_day(country_object):
+def get_first_cv_day(country_object, scale):
   country = country_object.df
   print(country)
   population = country_object.population
-  cv_thres = population * (1/args.cv_day_thres) #will give first day that one in cv_day_thres people in country affected via predict var
-  #cv_thres = 10
+  if scale == 'scaled':
+    cv_thres = population*(1/args.cv_day_thres) #will give first day that one in cv_day_thres people in country affected via predict var
+  elif scale == 'notscaled':
+    cv_thres = 10
+  else:
+    print('Need to set threshold for number of {} for what counts as COVID Outbreak Day'.format(args.predict_var))
+    exit()
   print(country_object.name)
   print(cv_thres)
   truncated_list = country[country[args.predict_var] > cv_thres]
@@ -90,7 +112,7 @@ if __name__ == '__main__':
   parser.add_argument('-name_new_deaths', '--name_new_deaths', type = str, dest = 'name_new_deaths', default = 'new_deaths', help = 'name of variable in country level file for new deaths per day')
   parser.add_argument('-predict_var', '--predict_var', type = str, dest = 'predict_var', default = 'total_deaths', help = 'number of variable used to determine where to start counting cv days, should be whichever variable in your dataset you believe is the most accurate')
   #Analysis Variables
-  parser.add_argument('-cv_day_thres', '--cv_day_thres', type = int, dest = 'cv_day_thres', default = 10000000, help = 'total number of cases to consider it the first day of cv19')
+  parser.add_argument('-cv_day_thres', '--cv_day_thres', type = int, dest = 'cv_day_thres', default = 1000000, help = 'total number of cases to consider it the first day of cv19')
   #Aesthetics : )
   parser.add_argument('-tick_font_size', '--tick_font_size', type = int, dest = 'tick_font_size', default = 8, help = 'size of tick labels in plots')
   parser.add_argument('-plot_y_scale', '--plot_y_scale', type = str, dest = 'plot_y_scale', default = 'log', help = 'scale for y axis, set to linear, log, etc')
