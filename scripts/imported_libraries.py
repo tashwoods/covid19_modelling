@@ -26,5 +26,6 @@ from countryinfo import CountryInfo
 from census import Census
 from us import states
 from classes import *
+from cycler import cycler
 
 from organize_input_output import *
