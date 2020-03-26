@@ -30,3 +30,4 @@ from cycler import cycler
 import random
 
 from organize_input_output import *
+from plot import *
