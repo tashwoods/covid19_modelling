@@ -1,7 +1,12 @@
 from imported_libraries import *
 
 def get_population(area, pop_df, region_name, pop_name):
+  print(area)
+
   area_df = pop_df.loc[pop_df[region_name]== area]
+  if area == 'King County': #For Seattle need to choose King county in WA not TX
+    print('in king county')
+    area_df = area_df.loc[area_df['STNAME']== 'Washington']
   print('pop df')
   print(area_df)
 

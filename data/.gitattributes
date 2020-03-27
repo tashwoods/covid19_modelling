@@ -1,0 +1,6 @@
+cc-est2018-alldata.csv filter=lfs diff=lfs merge=lfs -text
+covid_19_data_hubei.csv filter=lfs diff=lfs merge=lfs -text
+full_data.csv filter=lfs diff=lfs merge=lfs -text
+nst-est2019-alldata.csv filter=lfs diff=lfs merge=lfs -text
+us-counties.csv filter=lfs diff=lfs merge=lfs -text
+us-states.csv filter=lfs diff=lfs merge=lfs -text
