@@ -20,7 +20,7 @@ if __name__ == '__main__':
   parser.add_argument('-predict_var', '--predict_var', type = str, dest = 'predict_var', default = 'total_deaths', help = 'number of variable used to determine where to start counting cv days, should be whichever variable in your dataset you believe is the most accurate')
   #US State Population Info
   parser.add_argument('-us_state_population_file', '--us_state_population_file', type = str, dest = 'us_state_population_file', default = '../data/nst-est2019-alldata.csv', help = 'file with us population data')
-  parser.add_argument('-us_county_pop_file', '--us_county_pop_file', type = str, dest = 'us_county_pop_file', default = '../data/cc-est2018-alldata.csv', help = 'file with US county population info')
+  parser.add_argument('-us_county_pop_file', '--us_county_pop_file', type = str, dest = 'us_county_pop_file', default = '../data/county_info_not_tracked/cc-est2018-alldata.csv', help = 'file with US county population info')
   parser.add_argument('-state_pop_region_name', '--state_pop_region_name', type = str, dest = 'state_pop_region_name', default = 'NAME', help = 'name of state variable in population file')
   parser.add_argument('-state_pop_var_name', '--state_pop_var_name', type = str, dest = 'state_pop_var_name', default = 'POPESTIMATE2019', help = 'name of population variable to use (e.g. POPESTIMATE2016-2019')
   parser.add_argument('-county_pop_region_name', '--county_pop_region_name', type = str, dest = 'county_pop_region_name', default = 'CTYNAME', help = 'name of county variable in county_pop_file')
