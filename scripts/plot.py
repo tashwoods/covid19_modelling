@@ -72,10 +72,10 @@ def plot(area_objects_list, args, plot_type):
           prediction = 10**(model(x))
           x_predict, y_predict, y_best = get_shifted_prediction(area_df, var, model[1], model[0], area.input_args)
           #get_lives_saved_bar_chart(x_predict, y_predict, y_best, area.name, area.input_args)
-          if var == 'total_deaths':
-            plt.plot(area_df.index.values, area_df[var], label = area.name + ':' + str(slope), linewidth = args.linewidth)
-            if area.name != 'China' and area.name != 'Hubei': #China and Hubei levelled, don't care to plot their trends
-              plt.plot(x_predict,y_predict)
+          #if var == 'total_deaths':
+          plt.plot(area_df.index.values, area_df[var], label = area.name + ':' + str(slope), linewidth = args.linewidth)
+          if area.name != 'China' and area.name != 'Hubei': #China and Hubei levelled, don't care to plot their trends
+            plt.plot(x_predict,y_predict)
         plt.xlabel('Days since ' + str(args.cv_day_thres_notscaled) + ' Deaths')
         plt.ylabel(get_nice_var_name(var))
       elif plot_type == 'per_mil_covid_days':
@@ -94,10 +94,10 @@ def plot(area_objects_list, args, plot_type):
           slope = round(10**model[1],2)
           intercept = model[0]
           x_predict, y_predict, y_best = get_shifted_prediction(area_df, var, model[1], model[0], area.input_args)
-          if var == 'total_deaths':
-            plt.plot(area_df.index.values, area_df[var].div(area.population)*args.cv_day_thres, label = area.name + ':' + str(slope), linewidth = args.linewidth)
-            if area.name != 'China' and area.name != 'Hubei':
-              plt.plot(x_predict, (y_predict/area.population)*args.cv_day_thres)
+          #if var == 'total_deaths':
+          plt.plot(area_df.index.values, area_df[var].div(area.population)*args.cv_day_thres, label = area.name + ':' + str(slope), linewidth = args.linewidth)
+          if area.name != 'China' and area.name != 'Hubei':
+            plt.plot(x_predict, (y_predict/area.population)*args.cv_day_thres)
         plt.xlabel('Days since 1death/' + get_nice_var_name(args.cv_day_thres) + ' people')
         plt.ylabel(get_nice_var_name(var) + ' per ' + get_nice_var_name(args.cv_day_thres))
 
