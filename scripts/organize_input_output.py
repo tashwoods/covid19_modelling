@@ -1,9 +1,13 @@
 from imported_libraries import *
 
-def get_state_population(state, pop_df, args):
-  print(state)
-  state_df = pop_df.loc[pop_df[args.pop_region_name]== state]
-  population = int(state_df[args.pop_var_name])
+def get_population(area, pop_df, region_name, pop_name):
+  area_df = pop_df.loc[pop_df[region_name]== area]
+  print('pop df')
+  print(area_df)
+
+  population = int(area_df[pop_name])
+  print(type(population))
+  print(population)
   return population
 
 def translate_country_name(country):

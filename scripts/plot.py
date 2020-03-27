@@ -42,7 +42,7 @@ def get_lives_saved_bar_chart(x_predict, y_predict, y_best, name, args):
 
 def plot(area_objects_list, args, plot_type):
   #Make Plot Line Colors Pretty 
-  col = plt.cm.jet(np.linspace(0,1,round(len(area_objects_list)/2)+2))
+  col = plt.cm.jet(np.linspace(0,1,round(len(area_objects_list)/2)+5))
   line_cycler = cycler('color', col,) * cycler('linestyle', ['-', ':'])
   plt.rc('axes', prop_cycle = line_cycler)
   #Plot time series for time_series_variables
@@ -86,6 +86,10 @@ def plot(area_objects_list, args, plot_type):
         plt.ylim(1,5000)
         if start_date != -1:
           area_df = area_df[start_date:].reset_index()
+          print(area.name)
+          print(area_df[var])
+          if(len(area_df.index.values) < 2):
+            continue
           model = np.poly1d(np.polyfit(area_df.index.values, np.log10(area_df[var].div(area.population)*args.cv_day_thres),1))
           slope = round(10**model[1],2)
           intercept = model[0]

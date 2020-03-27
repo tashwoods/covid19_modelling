@@ -5,8 +5,10 @@ if __name__ == '__main__':
   #Corona Data 
   parser.add_argument('-country_data_file', '--country_data_file', type = str, dest = 'country_data_file', default = '../data/full_data.csv',  help = 'text file with input file names of countries') 
   parser.add_argument('-state_data_file', '--state_data_file', type = str, dest = 'state_data_file', default = '../data/us-states.csv', help = 'file with us state level data')
+  parser.add_argument('-county_data_file', '--county_data_file', type = str, dest = 'county_data_file', default = '../data/us-counties.csv', help = 'file with county level data')
   parser.add_argument('-selected_countries_file', '--selected_countries_file', type = str, dest = 'selected_countries_file', default = 'countries.txt', help = 'Name of text file with names of countries to process')
   parser.add_argument('-selected_states_file', '--selected_states_file', type = str, dest = 'selected_states_file', default = 'states.txt', help = 'Name of text file with name of US states to process')
+  parser.add_argument('-selected_counties', '--selected_counties_file', type = str, dest = 'selected_counties_file', default = 'counties.txt', help = 'text file with US counties to use')
   parser.add_argument('-time_series_variables', '--time_series_variables', type = list, dest = 'time_series_variables', default = ['total_deaths'], help = 'list of variables to plot in time series')
   parser.add_argument('-country_var_name', '--country_var_name', type = str, dest = 'country_var_name', default = 'location', help = 'country variable name in input dataset')
   parser.add_argument('-date_name', '--date_name', type = str, dest = 'date_name', default = 'date', help = 'name of date columns in input file')
@@ -18,8 +20,15 @@ if __name__ == '__main__':
   parser.add_argument('-predict_var', '--predict_var', type = str, dest = 'predict_var', default = 'total_deaths', help = 'number of variable used to determine where to start counting cv days, should be whichever variable in your dataset you believe is the most accurate')
   #US State Population Info
   parser.add_argument('-us_state_population_file', '--us_state_population_file', type = str, dest = 'us_state_population_file', default = '../data/nst-est2019-alldata.csv', help = 'file with us population data')
-  parser.add_argument('-pop_var_name', '--pop_var_name', type = str, dest = 'pop_var_name', default = 'POPESTIMATE2019', help = 'name of population variable to use (e.g. POPESTIMATE2016-2019')
-  parser.add_argument('-pop_region_name', '--pop_region_name', type = str, dest = 'pop_region_name', default = 'NAME', help = 'name of state variable in population file')
+  parser.add_argument('-us_county_pop_file', '--us_county_pop_file', type = str, dest = 'us_county_pop_file', default = '../data/cc-est2018-alldata.csv', help = 'file with US county population info')
+  parser.add_argument('-state_pop_region_name', '--state_pop_region_name', type = str, dest = 'state_pop_region_name', default = 'NAME', help = 'name of state variable in population file')
+  parser.add_argument('-state_pop_var_name', '--state_pop_var_name', type = str, dest = 'state_pop_var_name', default = 'POPESTIMATE2019', help = 'name of population variable to use (e.g. POPESTIMATE2016-2019')
+  parser.add_argument('-county_pop_region_name', '--county_pop_region_name', type = str, dest = 'county_pop_region_name', default = 'CTYNAME', help = 'name of county variable in county_pop_file')
+  parser.add_argument('-county_pop_var_name', '--county_pop_var_name', type = str, dest = 'county_pop_var_name', default = 'TOT_POP', help = 'name of total population variable in county_pop_file')
+  parser.add_argument('-county_pop_year', '--county_pop_year', type = int, dest = 'county_pop_year', default = 11, help = 'year to use')
+  parser.add_argument('-county_pop_age_group', '--county_pop_age_group', type = int, dest = 'county_pop_age_group', default = 0, help = 'age group to use for county population')
+  parser.add_argument('-county_var_name', '--county_var_name', type = str, dest = 'county_var_name', default = 'county', help = 'name of county variable in county data file')
+
   #Specify output and its final location
   parser.add_argument('-output_dir', '--output_dir', type = str, dest = 'output_dir', default = 'output', help = 'name of output_dir')
   parser.add_argument('-plot_time_series', '--plot_time_series', type = int, dest = 'plot_time_series', default = 1, help = 'set to one to plot time series, zero to not')
@@ -73,7 +82,7 @@ if __name__ == '__main__':
   for state in selected_states :
     if len(state.strip()) > 0:
       state = state.rstrip()
-      population = get_state_population(state, state_population_df, args)
+      population = get_population(state, state_population_df, args.state_pop_region_name, args.state_pop_var_name)
       this_state_df = state_dataframe[state_dataframe[args.country_var_name].str.match(state)]
       this_state_df = this_state_df.sort_values(by=[args.date_name])
       #this_state_df[args.name_total_cases] = this_state_df['new_cases'].cumsum()
@@ -82,6 +91,35 @@ if __name__ == '__main__':
       this_state_df.fillna(0, inplace = True)
       print(this_state_df)
       area_object = area_corona_class(state, this_state_df, population,args)
+      area_objects_list.append(area_object)
+
+  #Obtain US County level dataframe
+  print('HERE')
+  print(args.us_county_pop_file)
+  county_population_df = pd.read_csv(args.us_county_pop_file, encoding='latin-1')
+  county_population_df = county_population_df.loc[county_population_df['YEAR'] == args.county_pop_year]
+  county_population_df = county_population_df.loc[county_population_df['AGEGRP'] == args.county_pop_age_group]
+  print(county_population_df)
+  selected_counties = open(args.selected_counties_file, "r")
+  counties_dataframe = pd.read_csv(args.county_data_file, parse_dates = [args.date_name])
+  print(counties_dataframe)
+  #state_dataframe.fillna(0, inplace=True)
+  counties_dataframe = counties_dataframe.rename(columns = {'state': 'location', 'cases': 'total_cases', 'deaths': 'total_deaths'})
+  #Split state dataframe by state, and compute and append cumulative variables
+  for county in selected_counties:
+    if len(county.strip()) > 0:
+      county = county.rstrip()
+      population = get_population(county, county_population_df, args.county_pop_region_name, args.county_pop_var_name)
+      county = county.rsplit(' ', 1)[0]
+      print(county)
+      this_county_df = counties_dataframe[counties_dataframe[args.county_var_name].str.match(county)]
+      this_county_df = this_county_df.sort_values(by=[args.date_name])
+      #this_state_df[args.name_total_cases] = this_state_df['new_cases'].cumsum()
+      this_county_df['new_cases'] = this_county_df['total_cases'].diff()
+      this_county_df['new_deaths'] = this_county_df['total_deaths'].diff()
+      this_county_df.fillna(0, inplace = True)
+      print(this_county_df)
+      area_object = area_corona_class(county, this_county_df, population,args)
       area_objects_list.append(area_object)
 
   #Process Hubei Data
