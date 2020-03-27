@@ -1,24 +1,14 @@
-All data from:
-https://data.world/covid-19-data-resource-hub/covid-19-case-counts/workspace/file?filename=COVID-19+Cases.csv
+Population Data---------------------------------
+NST-EST2019
+https://www2.census.gov/programs-surveys/popest/technical-documentation/file-layouts/2010-2019/nst-est2019-alldata.pdf
 
-Country-levl data from:
+COVID-19 Data----------------------------------
+Country-level----------------------------------
 https://covid.ourworldindata.org/data/ecdc/full_data.csv
-
-State-level data from:
-https://www.kaggle.com/sudalairajkumar/covid19-in-usa/metadata
-date - date of observation
-state - US state 2 digit code
-positive - number of tests with positive results
-negative - number of tests with negative results
-pending - number of test with pending results
-death - number of deaths
-total - total number of tests
-
-
-Hubei Data:
+State-level------------------------------------
+https://github.com/nytimes/covid-19-data
+Hubei-level------------------------------------
 https://www.kaggle.com/sudalairajkumar/novel-corona-virus-2019-dataset#covid_19_data.csv
-
-
 SNoSerial Number
 ObservationDateObservation date in mm/dd/yyyy
 Province/StateProvince or State
