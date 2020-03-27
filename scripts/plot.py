@@ -12,6 +12,34 @@ def get_nice_var_name(var):
   if var == 1000000:
     return '1M'
 
+def get_shifted_prediction(area_df, var, slope, intercept, args):
+  last_x = len(area_df.index.values) - 1
+  last_y = np.log10(area_df[var].iloc[-1])
+  shifted_intercept = last_y - (slope * last_x)
+  best_shifted_intercept = last_y - (args.min_growth_rate * last_x)
+  last_predict_day = last_x + args.days_of_cv_predict
+  x = np.linspace(last_x,last_predict_day, last_predict_day - last_x + 1)
+  y = 10**((slope * x) + shifted_intercept)
+  y_best = 10**((args.min_growth_rate *x) + best_shifted_intercept)
+  return x, y, y_best
+
+def get_lives_saved_bar_chart(x_predict, y_predict, y_best, name, args):
+  plt.close('all')
+  lives_saved = y_predict - y_best
+  plt.yscale('linear')
+  x_predict = [x - x_predict[0] for x in x_predict]
+  plt.xlim(0,args.days_of_cv_predict + 1)
+  plt.bar(x_predict, lives_saved)
+  plt.xlabel('Days From Now')
+  plt.ylabel('Total Lives Saved')
+  total_saved = round(lives_saved[-1],0)
+  plt.title(name + ': Total Lives Saved Days from Now')
+  plt.text(0.5, 900, 'Current Projected Deaths: ' + str(round(y_predict[-1],0)))
+  plt.text(0.5, 800, 'Best Case Projected Deaths: ' + str(round(y_best[-1],0)))
+  plt.text(0.5, 700, 'Lives That Could Be Saved: ' + str(total_saved))
+  plt.savefig(args.output_dir + '/' + name + 'livessaved.pdf')
+  plt.close('all')
+
 def plot(area_objects_list, args, plot_type):
   #Make Plot Line Colors Pretty 
   col = plt.cm.jet(np.linspace(0,1,round(len(area_objects_list)/2)+2))
@@ -23,63 +51,56 @@ def plot(area_objects_list, args, plot_type):
       area = area_objects_list[i]
       area_df = area.df
       if plot_type == 'unmodified':
-        plt.plot(area_df[args.date_name], area_df[var], label = area.name)
+        plt.plot(area_df[args.date_name], area_df[var], label = area.name, linewidth = args.linewidth)
         plt.xlabel(args.n_date_name)
         plt.ylabel(get_nice_var_name(var))
+
       elif plot_type == 'per_mil':
-        plt.plot(area_df[args.date_name], (area_df[var].div(area.population)*args.cv_day_thres), label = area.name)
+        plt.plot(area_df[args.date_name], (area_df[var].div(area.population)*args.cv_day_thres), label = area.name, linewidth = args.linewidth)
         plt.xlabel(args.n_date_name)
         plt.ylabel(get_nice_var_name(var) + ' per ' + get_nice_var_name(args.cv_day_thres))
+
       elif plot_type == 'unmodified_covid_days':
-        x_max = len(area_df.index.values)+10
+        print(area.name)
+        x_max = len(area_df.index.values) + args.days_of_cv_predict
         x = np.linspace(0,x_max, x_max)
-        plt.xlim(0,40)
+        plt.xlim(0,30)
         plt.ylim(10,100000)
         start_date = get_first_cv_day(area, 'notscaled')
-        if start_date != -1:
-          print(area.name)
+        if start_date != -1: #if there has been at least one CV day plot that area
           area_df = area_df[start_date:].reset_index()
-          print(np.polyfit(area_df.index.values, np.log10(area_df[var]),1))
-          model = np.poly1d(np.polyfit(area_df.index.values[:-3], np.log10(area_df[var][:-3]),1))
-          slope = round(10**model[1],2)
+          model = np.poly1d(np.polyfit(area_df.index.values, np.log10(area_df[var]),1))
+          slope = round(10**model[1],2) #this is written for log scale, should make it more general
           intercept = model[0]
+          print(model[1])
           prediction = 10**(model(x))
-          prediction20 = 10**(model(30))
-          print('day 30 guess:{} '.format(prediction20))
-          #for x,y in zip(x,prediction):
-          #  print('day: {} predict: {}'.format(x,y))
+          x_predict, y_predict, y_best = get_shifted_prediction(area_df, var, model[1], model[0], area.input_args)
+          get_lives_saved_bar_chart(x_predict, y_predict, y_best, area.name, area.input_args)
           if var == 'total_deaths':
-            plt.plot(area_df.index.values, area_df[var], label = area.name + ':' + str(slope))
-            if area.name != 'China' and area.name != 'Hubei':
-              plt.plot(x,prediction)#,label = area.name + ' Fit')
-        plt.xlabel('Days since 10 deaths')
+            plt.plot(area_df.index.values, area_df[var], label = area.name + ':' + str(slope), linewidth = args.linewidth)
+            if area.name != 'China' and area.name != 'Hubei': #China and Hubei levelled, don't care to plot their trends
+              plt.plot(x_predict,y_best)
+        plt.xlabel('Days since ' + str(args.cv_day_thres_notscaled) + ' Deaths')
         plt.ylabel(get_nice_var_name(var))
 
       elif plot_type == 'per_mil_covid_days':
         start_date = get_first_cv_day(area, 'scaled')
-        x_max = len(area_df.index.values)+10
+        x_max = len(area_df.index.values) + args.days_of_cv_predict
         x = np.linspace(0,x_max, x_max)
+        plt.xlim(0,30)
+        plt.ylim(1,5000)
         if start_date != -1:
           area_df = area_df[start_date:].reset_index()
           model = np.poly1d(np.polyfit(area_df.index.values, np.log10(area_df[var].div(area.population)*args.cv_day_thres),1))
           slope = round(10**model[1],2)
           intercept = model[0]
-          prediction = 10**(model(x))
-          prediction20 = 10**(model(20))
-          print('prediction day 20:{}'.format(prediction20))
-
+          x_predict, y_predict, y_best = get_shifted_prediction(area_df, var, model[1], model[0], area.input_args)
           if var == 'total_deaths':
-            print(area.name)
-            print('slope:{} inter:{}'.format(slope, intercept))
-            plt.plot(area_df.index.values, area_df[var].div(area.population)*args.cv_day_thres, label = area.name + ':' + str(slope))
+            plt.plot(area_df.index.values, area_df[var].div(area.population)*args.cv_day_thres, label = area.name + ':' + str(slope), linewidth = args.linewidth)
             if area.name != 'China' and area.name != 'Hubei':
-              plt.plot(x,prediction)#,label = area.name + ' Fit')
-
+              plt.plot(x_predict, (y_best/area.population)*args.cv_day_thres)
         plt.xlabel('Days since 1death/' + get_nice_var_name(args.cv_day_thres) + ' people')
         plt.ylabel(get_nice_var_name(var) + ' per ' + get_nice_var_name(args.cv_day_thres))
-        plt.xlim(1,30)
-        plt.ylim(1,1000)
-
 
     if plot_type == 'unmodified_covid_days':
       for i in args.growth_rates:

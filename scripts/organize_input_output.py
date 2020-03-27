@@ -1,5 +1,13 @@
 from imported_libraries import *
 
+def translate_country_name(country):
+  if country == 'Korea, South':
+    return 'South Korea'
+  if country == 'US':
+    return 'United States'
+  else:
+    return country
+
 def add_attributes(dataset): #Natasha: make this less hardcoded and more dynamic
   #dataset['Open_Close'] = dataset['Open']/dataset['Close']
   #dataset['Low_High'] = dataset['Low']/dataset['High']

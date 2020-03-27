@@ -28,6 +28,8 @@ from us import states
 from classes import *
 from cycler import cycler
 import random
+import csv
+import requests
 
 from organize_input_output import *
 from plot import *

@@ -1,3 +1,6 @@
+All data from:
+https://data.world/covid-19-data-resource-hub/covid-19-case-counts/workspace/file?filename=COVID-19+Cases.csv
+
 Country-levl data from:
 https://covid.ourworldindata.org/data/ecdc/full_data.csv
 
@@ -10,3 +13,17 @@ negative - number of tests with negative results
 pending - number of test with pending results
 death - number of deaths
 total - total number of tests
+
+
+Hubei Data:
+https://www.kaggle.com/sudalairajkumar/novel-corona-virus-2019-dataset#covid_19_data.csv
+
+
+SNoSerial Number
+ObservationDateObservation date in mm/dd/yyyy
+Province/StateProvince or State
+Country/RegionCountry or region
+Last UpdateLast update date time in UTC
+ConfirmedCumulative number of confirmed cases
+DeathsCumulative number of deaths cases
+RecoveredCumulative number of recovered cases

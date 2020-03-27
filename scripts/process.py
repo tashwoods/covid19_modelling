@@ -25,16 +25,39 @@ if __name__ == '__main__':
   #Aesthetics : )
   parser.add_argument('-tick_font_size', '--tick_font_size', type = int, dest = 'tick_font_size', default = 8, help = 'size of tick labels in plots')
   parser.add_argument('-plot_y_scale', '--plot_y_scale', type = str, dest = 'plot_y_scale', default = 'log', help = 'scale for y axis, set to linear, log, etc')
-
+  parser.add_argument('-linewidth', '--linewidth', type = int, dest = 'linewidth', default = 1, help = 'width of lines for plots')
+  parser.add_argument('-days_of_cv_predict', '--days_of_cv_predict', type = int, dest = 'days_of_cv_predict', default = 10, help = 'number of days past last date in dataset to predict cv trends')
+  parser.add_argument('-min_growth_rate', '--min_growth_rate', type = float, dest = 'min_growth_rate', default = 0.0357, help = 'min growth rate to compare to')
   args = parser.parse_args()
 
+  #Internally Defined Variables
   covid_outbreak_days_name = 'COVID-19 Outbreak Days'
-
-  #Make output data directory and get input data
+  #Make output folders
   variables = [args.date_name, args.name_total_cases, args.name_total_deaths, args.name_new_cases, args.name_new_deaths, args.country_var_name]
   make_output_dir(args.output_dir)
+
+  #Collect Output Data
+  area_objects_list = list()
   #Obtain country level dataframe
-  full_dataframe = pd.read_csv(args.input_file, parse_dates = [args.date_name])
+  countries_file = open(args.countries_file, "r")
+  country_dataframe = pd.read_csv(args.input_file, parse_dates = [args.date_name])
+  for country in countries_file:
+    if len(country.strip()) > 0:
+      country = country.rstrip()
+      this_country_df = country_dataframe[country_dataframe[args.country_var_name].str.match(country)]
+      population = CountryInfo(country).population()
+      area_object = area_corona_class(country, this_country_df, population,args)
+      area_objects_list.append(area_object)
+    if country == 'Chinaz': #to scale China's dataset to see if their reporting seems accurate
+      this_country_df = full_dataframe[full_dataframe[args.country_var_name].str.match(country)]
+      for var in args.time_series_variables:
+        scale_china = 3000
+        this_country_df[var] = scale_china * this_country_df[var]
+      population = CountryInfo(country).population()
+      name = country + 'x' + str(scale_china)
+      area_object = area_corona_class(name, this_country_df, population,args)
+      area_objects_list.append(area_object)
+
   #Obtain state level dataframe
   states = ['WA', 'CA', 'AL', 'CO', 'NY', 'FL']
   populations = [7800000, 39940000, 4910000, 5800000, 19540000, 22000000]
@@ -43,43 +66,6 @@ if __name__ == '__main__':
   #Process state-level dataframe to match formatting of country level dataframe
   state_dataframe.fillna(0, inplace=True)
   state_dataframe = state_dataframe.rename(columns = {'state': 'location', 'positive': 'new_cases', 'death': 'new_deaths', 'total': 'total_new_tests'})
-
-  #setup census object to obtain US state populations #Figure out later maybe Natasha##
-  #c = Census("42ec78e46c9d0bf074a6332b41bec791e3a95d14", year= 2020)
-  #pop = c.acs5.get('POP', geo='state:{Alabama}')
-
-  #Format data
-  area_objects_list = list()
-
-  #Process Hubei Data
-  hubei_pop = 11000000
-  hubei_df = pd.read_csv('../data/covid_19_data_hubei.csv', parse_dates = ['ObservationDate'])
-  hubei_df = hubei_df.rename(columns = {'ObservationDate': 'date', 'Province/State': 'location', 'Confirmed': 'total_cases', 'Deaths': 'total_deaths'})
-  hubei_df[args.name_new_cases] = hubei_df[args.name_total_cases].diff().fillna(0)
-  hubei_df[args.name_new_deaths] = hubei_df[args.name_total_deaths].diff().fillna(0)
-  area_object = area_corona_class('Hubei', hubei_df, hubei_pop,args)
-  area_objects_list.append(area_object)
-
-  #Process make country dataframe and objects
-  countries_file = open(args.countries_file, "r")
-  for country in countries_file:
-    if len(country.strip()) > 0:
-      country = country.rstrip()
-      this_country_df = full_dataframe[full_dataframe[args.country_var_name].str.match(country)]
-      population = CountryInfo(country).population()
-      area_object = area_corona_class(country, this_country_df, population,args)
-      area_objects_list.append(area_object)
-
-      if country == 'Chinaz':
-        this_country_df = full_dataframe[full_dataframe[args.country_var_name].str.match(country)]
-        for var in args.time_series_variables:
-          scale_china = 3000
-          this_country_df[var] = scale_china * this_country_df[var]
-        population = CountryInfo(country).population()
-        name = country + 'x' + str(scale_china)
-        area_object = area_corona_class(name, this_country_df, population,args)
-        area_objects_list.append(area_object)
-
   #Split state dataframe by state, and compute and append cumulative variables
   for state, population in zip(states,populations) :
     if len(state.strip()) > 0:
@@ -91,7 +77,24 @@ if __name__ == '__main__':
       this_state_df['total_tests'] = this_state_df['total_new_tests'].cumsum()
       area_object = area_corona_class(state, this_state_df, population,args)
 
-      #area_objects_list.append(area_object)
+      area_objects_list.append(area_object)
+
+  #setup census object to obtain US state populations #Figure out later maybe Natasha##
+  #c = Census("42ec78e46c9d0bf074a6332b41bec791e3a95d14", year= 2020)
+  #pop = c.acs5.get('POP', geo='state:{Alabama}')
+
+  #Process Hubei Data
+  hubei_pop = 11000000
+  hubei_df = pd.read_csv('../data/covid_19_data_hubei.csv', parse_dates = ['ObservationDate'])
+  hubei_df = hubei_df.rename(columns = {'ObservationDate': 'date', 'Province/State': 'location', 'Confirmed': 'total_cases', 'Deaths': 'total_deaths'})
+  hubei_df[args.name_new_cases] = hubei_df[args.name_total_cases].diff().fillna(0)
+  hubei_df[args.name_new_deaths] = hubei_df[args.name_total_deaths].diff().fillna(0)
+  area_object = area_corona_class('Hubei', hubei_df, hubei_pop,args)
+  #area_objects_list.append(area_object)
+
+
+
+
 
   if(args.plot_time_series == 1):
     #plot(area_objects_list, args, 'unmodified')
