@@ -133,7 +133,7 @@ if __name__ == '__main__':
   area_objects_list.append(area_object)
 
   if(args.plot_time_series == 1):
-    #plot(area_objects_list, args, 'unmodified')
-    #plot(area_objects_list, args, 'per_mil')
+    plot(area_objects_list, args, 'unmodified')
+    plot(area_objects_list, args, 'per_mil')
     plot(area_objects_list, args, 'unmodified_covid_days')
     plot(area_objects_list, args, 'per_mil_covid_days')
