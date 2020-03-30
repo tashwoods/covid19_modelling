@@ -27,3 +27,8 @@ United States:
 https://www.census.gov/quickfacts/fact/note/US/LND110210
 World:
 https://data.worldbank.org/indicator/AG.LND.TOTL.K2
+
+When Git is being a pain/I am too impatient to understand it
+git filter-branch -f --index-filter 'git rm --cached --ignore-unmatch pi/data/node-login.0'
+
+
