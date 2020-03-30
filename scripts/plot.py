@@ -24,6 +24,12 @@ def get_shifted_prediction(area_df, var, slope, intercept, best_growth_rate, arg
   return x, y, y_best
 
 def get_lives_saved_bar_chart(x_predict, y_predict, y_best, name, args, savename):
+  print('lives saved')
+  print(name)
+  print(x_predict)
+  print(y_predict)
+  print(y_best)
+
   plt.close('all')
   lives_saved = y_predict - y_best
   plt.yscale('linear')
@@ -32,15 +38,15 @@ def get_lives_saved_bar_chart(x_predict, y_predict, y_best, name, args, savename
   plt.bar(x_predict, lives_saved)
   plt.xlabel('Days From Now')
   plt.ylabel('Total Lives Saved')
-  total_saved = round(lives_saved[-1],0)
+  total_saved = round(lives_saved[-1],1)
   if savename == 'Individual':
     plt.title(name + ': Total Lives One Person Could Save')
   else:
     plt.title(name + ': Total Lives Saved Days from Now')
-  plt.text(0.02, 0.9, 'Current Projected Deaths: ' + str(round(y_predict[-1],0)), transform = plt.gca().transAxes)
-  plt.text(0.02, 0.8, 'Best Case Projected Deaths: ' + str(round(y_best[-1],0)), transform = plt.gca().transAxes)
+  plt.text(0.02, 0.9, 'Current Projected Deaths: ' + str(round(y_predict[-1],1)), transform = plt.gca().transAxes)
+  plt.text(0.02, 0.8, 'Best Case Projected Deaths: ' + str(round(y_best[-1],1)), transform = plt.gca().transAxes)
   plt.text(0.02, 0.7, 'Lives That Could Be Saved: ' + str(total_saved), transform = plt.gca().transAxes)
-  plt.savefig(args.output_dir + '/' + name + 'livessaved' + savename + '.pdf')
+  plt.savefig(args.output_dir + '/' + name + 'livessaved' + savename + '.png')
   plt.close('all')
 
 def plot(area_objects_list, args, plot_type):
@@ -68,7 +74,7 @@ def plot(area_objects_list, args, plot_type):
         x_max = len(area_df.index.values) + args.days_of_cv_predict
         x = np.linspace(0,x_max, x_max)
         plt.xlim(0,30)
-        plt.ylim(10,100000)
+        #plt.ylim(10,100000)
         start_date = get_first_cv_day(area, 'notscaled')
         if start_date != -1: #if there has been at least one CV day plot that area
           area_df = area_df[start_date:].reset_index()
@@ -77,12 +83,22 @@ def plot(area_objects_list, args, plot_type):
           intercept = model[0]
           prediction = 10**(model(x))
           x_predict, y_predict, y_best = get_shifted_prediction(area_df, var, model[1], model[0], args.min_growth_rate, area.input_args)
-          #get_lives_saved_bar_chart(x_predict, y_predict, y_best, area.name, area.input_args, 'All')
+          get_lives_saved_bar_chart(x_predict, y_predict, y_best, area.name, area.input_args, 'All')
           #individual impact
           current_indiv_slope = (model[1]/area.population)
+          print('current indiv slope')
+          print(current_indiv_slope)
+          print('min indiv slope')
+          print(args.min_indiv_growth_rate)
+          print('diff')
+          print(current_indiv_slope - args.min_indiv_growth_rate)
           improved_slope = model[1] - (current_indiv_slope - args.min_indiv_growth_rate)
+          print('current slope')
+          print(model[1])
+          print('better slope')
+          print(improved_slope)
           x_predict, y_predict_indiv, y_best_indiv = get_shifted_prediction(area_df, var, model[1], model[0], improved_slope, area.input_args)
-          #get_lives_saved_bar_chart(x_predict, y_predict_indiv, y_best_indiv, area.name, area.input_args, 'Individual')
+          get_lives_saved_bar_chart(x_predict, y_predict_indiv, y_best_indiv, area.name, area.input_args, 'Individual')
           #if var == 'total_deaths':
           plt.plot(area_df.index.values, area_df[var], label = area.name + ':' + str(slope), linewidth = args.linewidth)
           #if area.name != 'China' and area.name != 'Hubei': #China and Hubei levelled, don't care to plot their trends
