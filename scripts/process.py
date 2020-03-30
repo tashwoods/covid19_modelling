@@ -59,7 +59,7 @@ if __name__ == '__main__':
   for country in selected_countries:
     if len(country.strip()) > 0:
       country = country.rstrip()
-      this_country_df = country_dataframe[country_dataframe[args.country_var_name].str.match(country)]
+      this_country_df = country_dataframe.loc[country_dataframe[args.country_var_name] == country]
       population = CountryInfo(country).population()
       area_object = area_corona_class(country, this_country_df, population,args)
       area_objects_list.append(area_object)
@@ -90,21 +90,15 @@ if __name__ == '__main__':
       this_state_df['new_cases'] = this_state_df['total_cases'].diff()
       this_state_df['new_deaths'] = this_state_df['total_deaths'].diff()
       this_state_df.fillna(0, inplace = True)
-      print(this_state_df)
       area_object = area_corona_class(state, this_state_df, population,args)
       area_objects_list.append(area_object)
 
   #Obtain US County level dataframe
-  print('HERE')
-  print(args.us_county_pop_file)
   county_population_df = pd.read_csv(args.us_county_pop_file, encoding='latin-1')
   county_population_df = county_population_df.loc[county_population_df['YEAR'] == args.county_pop_year]
   county_population_df = county_population_df.loc[county_population_df['AGEGRP'] == args.county_pop_age_group]
-  print(county_population_df)
   selected_counties = open(args.selected_counties_file, "r")
   counties_dataframe = pd.read_csv(args.county_data_file, parse_dates = [args.date_name])
-  print(counties_dataframe)
-  #state_dataframe.fillna(0, inplace=True)
   counties_dataframe = counties_dataframe.rename(columns = {'state': 'location', 'cases': 'total_cases', 'deaths': 'total_deaths'})
   #Split state dataframe by state, and compute and append cumulative variables
   for county in selected_counties:
@@ -112,25 +106,30 @@ if __name__ == '__main__':
       county = county.rstrip()
       population = get_population(county, county_population_df, args.county_pop_region_name, args.county_pop_var_name)
       county = county.rsplit(' ', 1)[0]
-      print(county)
-      this_county_df = counties_dataframe[counties_dataframe[args.county_var_name].str.match(county)]
+      this_county_df = counties_dataframe.loc[counties_dataframe[args.county_var_name] == county]
       this_county_df = this_county_df.sort_values(by=[args.date_name])
       #this_state_df[args.name_total_cases] = this_state_df['new_cases'].cumsum()
       this_county_df['new_cases'] = this_county_df['total_cases'].diff()
       this_county_df['new_deaths'] = this_county_df['total_deaths'].diff()
       this_county_df.fillna(0, inplace = True)
-      print(this_county_df)
       area_object = area_corona_class(county, this_county_df, population,args)
       area_objects_list.append(area_object)
 
   #Process Hubei Data
   hubei_pop = 11000000
   hubei_df = pd.read_csv('../data/covid_19_data_hubei.csv', parse_dates = ['ObservationDate'])
+  hubei_df = hubei_df.loc[hubei_df['Province/State'] == 'Hubei']
   hubei_df = hubei_df.rename(columns = {'ObservationDate': 'date', 'Province/State': 'location', 'Confirmed': 'total_cases', 'Deaths': 'total_deaths'})
   hubei_df[args.name_new_cases] = hubei_df[args.name_total_cases].diff().fillna(0)
   hubei_df[args.name_new_deaths] = hubei_df[args.name_total_deaths].diff().fillna(0)
   area_object = area_corona_class('Hubei', hubei_df, hubei_pop,args)
   area_objects_list.append(area_object)
+
+  print('checking objects~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+  for obj in area_objects_list:
+    print(obj.name)
+    print(obj.population)
+    print(obj.df)
 
   if(args.plot_time_series == 1):
     plot(area_objects_list, args, 'unmodified')

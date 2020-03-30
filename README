@@ -17,3 +17,7 @@ Last UpdateLast update date time in UTC
 ConfirmedCumulative number of confirmed cases
 DeathsCumulative number of deaths cases
 RecoveredCumulative number of recovered cases
+
+
+To automatically update files from kaggle dataset, your Kaggle key must be setup:
+https://github.com/Kaggle/kaggle-api
