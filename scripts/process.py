@@ -96,7 +96,9 @@ if __name__ == '__main__':
       this_country_df = country_dataframe.loc[country_dataframe[args.country_var_name] == country]
       population = CountryInfo(country).population()
       area = land_area_df.loc[land_area_df[args.country_var_name] == country, new_land_area_name]
-      area_object = area_corona_class(country, this_country_df, population, area, args)
+      cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_country_df, population, args)
+      area_object = area_corona_class(country, this_country_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled)
+
       area_objects_list.append(area_object)
     if country == 'Chinaz': #Scale China's dataset to see if their reporting seems accurate
       this_country_df = full_dataframe[full_dataframe[args.country_var_name].str.match(country)]
@@ -105,8 +107,9 @@ if __name__ == '__main__':
         this_country_df[var] = scale_china * this_country_df[var]
       population = CountryInfo(country).population()
       area = land_area_df.loc[land_area_df[args.country_var_name] == country, new_land_area_name]
+      cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_country_df, population, args)
       name = country + 'x' + str(scale_china)
-      area_object = area_corona_class(name, this_country_df, population, area, args)
+      area_object = area_corona_class(name, this_country_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled)
       area_objects_list.append(area_object)
 
   #Obtain state level dataframe
@@ -121,13 +124,15 @@ if __name__ == '__main__':
       state = state.rstrip()
       population = get_population(state, state_population_df, args.state_pop_region_name, args.state_pop_var_name)
       area = land_area_df.loc[land_area_df[args.country_var_name] == country, new_land_area_name]
+
       this_state_df = state_dataframe[state_dataframe[args.country_var_name].str.match(state)]
       this_state_df = this_state_df.sort_values(by=[args.date_name])
       #this_state_df[args.name_total_cases] = this_state_df['new_cases'].cumsum()
       this_state_df['new_cases'] = this_state_df['total_cases'].diff()
       this_state_df['new_deaths'] = this_state_df['total_deaths'].diff()
       this_state_df.fillna(0, inplace = True)
-      area_object = area_corona_class(state, this_state_df, population, area, args)
+      cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_state_df, population, args)
+      area_object = area_corona_class(state, this_state_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled)
       area_objects_list.append(area_object)
 
   #Obtain US County level dataframe
@@ -143,6 +148,7 @@ if __name__ == '__main__':
       county = county.rstrip()
       population = get_population(county, county_population_df, args.county_pop_region_name, args.county_pop_var_name)
       area = land_area_df.loc[land_area_df[args.country_var_name] == country, new_land_area_name]
+
       county = county.rsplit(' ', 1)[0]
       this_county_df = counties_dataframe.loc[counties_dataframe[args.county_var_name] == county]
       this_county_df = this_county_df.sort_values(by=[args.date_name])
@@ -150,7 +156,8 @@ if __name__ == '__main__':
       this_county_df['new_cases'] = this_county_df['total_cases'].diff()
       this_county_df['new_deaths'] = this_county_df['total_deaths'].diff()
       this_county_df.fillna(0, inplace = True)
-      area_object = area_corona_class(county, this_county_df, population, area, args)
+      cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_county_df, population, args)
+      area_object = area_corona_class(county, this_county_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled)
       area_objects_list.append(area_object)
 
   #Process Hubei Data
@@ -161,17 +168,51 @@ if __name__ == '__main__':
   hubei_df = hubei_df.rename(columns = {'ObservationDate': 'date', 'Province/State': 'location', 'Confirmed': 'total_cases', 'Deaths': 'total_deaths'})
   hubei_df[args.name_new_cases] = hubei_df[args.name_total_cases].diff().fillna(0)
   hubei_df[args.name_new_deaths] = hubei_df[args.name_total_deaths].diff().fillna(0)
-  area_object = area_corona_class('Hubei', hubei_df, hubei_pop, hubei_area, args)
+  cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(hubei_df, hubei_pop, args)
+  area_object = area_corona_class('Hubei', hubei_df, hubei_pop, hubei_area, args, cv_days_df_per_mil, cv_days_df_not_scaled)
   area_objects_list.append(area_object)
 
-  print('checking objects~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-  for obj in area_objects_list:
-    print(obj.name)
-    print(obj.population)
-    print(obj.df)
+
 
   if(args.plot_time_series == 1):
-    plot(area_objects_list, args, 'unmodified')
-    plot(area_objects_list, args, 'per_mil')
-    plot(area_objects_list, args, 'unmodified_covid_days')
-    plot(area_objects_list, args, 'per_mil_covid_days')
+    plot(area_objects_list, args, 'unmodified', 0)
+    plot(area_objects_list, args, 'per_mil', 0)
+    plot(area_objects_list, args, 'unmodified_covid_days', 0)
+    plot(area_objects_list, args, 'per_mil_covid_days', 1)
+
+  print('checking objects~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+  plt.close('all')
+  col = plt.cm.jet(np.linspace(0,1,round(len(area_objects_list)/2)+5))
+  line_cycler = cycler('color', col,)
+  plt.rc('axes', prop_cycle = line_cycler)
+
+  print('processing per mil')
+  plt.xlim(0,30)
+  plt.ylim(1,5000)
+  for obj in area_objects_list:
+    print(obj.name)
+    cv_days_df_per_mil = obj.cv_days_df_per_mil
+    if len(cv_days_df_per_mil.index) > 1:
+      print(cv_days_df_per_mil)
+      plt.plot(cv_days_df_per_mil['cv_days'], cv_days_df_per_mil['deaths_per_mil'], label = obj.name)
+  plt.legend()
+  plt.title('deaths per mil')
+  plt.yscale('log')
+  plt.savefig('us_cv_days_deaths_per_mil.pdf')
+  plt.close('all')
+
+  print('processing total deaths')
+  plt.xlim(0,30)
+  plt.ylim(1,10000)
+  for obj in area_objects_list:
+    print(obj.name)
+    cv_days_df_not_scaled = obj.cv_days_df_not_scaled
+    print(type(cv_days_df_not_scaled))
+    if len(cv_days_df_not_scaled.index) > 1:
+      print(obj.name)
+      plt.plot(cv_days_df_not_scaled['cv_days'], cv_days_df_not_scaled['total_deaths'], label = obj.name)
+  plt.legend()
+  plt.title('total_deaths')
+  plt.yscale('log')
+  plt.savefig('us_cv_days_deaths.pdf')
+

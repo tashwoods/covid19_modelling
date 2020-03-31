@@ -15,6 +15,20 @@ def translate_country_name(country):
   else:
     return country
 
+def get_cv_days_df(area_df, population, args):
+  #start_date = simple_get_first_cv_day(area_df,population,args,'scaled')
+  start_date_per_mil, start_date_not_scaled = simple_get_first_cv_day(area_df, population, args)
+  area_df_per_mil = area_df[start_date_per_mil:].reset_index()
+  area_df_not_scaled = area_df[start_date_not_scaled:].reset_index()
+  cv_days_df_per_mil = pd.DataFrame()
+  cv_days_df_not_scaled = pd.DataFrame()
+  if start_date_per_mil != -1:
+    cv_days_df_per_mil = pd.DataFrame(list(zip(area_df_per_mil.index.values, area_df_per_mil[args.predict_var].div(population)*args.cv_day_thres)), columns = ['cv_days', 'deaths_per_mil'])
+  if start_date_not_scaled != -1:
+    cv_days_df_not_scaled = pd.DataFrame(list(zip(area_df_not_scaled.index.values, area_df_not_scaled[args.predict_var])), columns = ['cv_days', 'total_deaths'])
+
+  return cv_days_df_per_mil, cv_days_df_not_scaled
+
 def add_attributes(dataset): #Natasha: make this less hardcoded and more dynamic
   #dataset['Open_Close'] = dataset['Open']/dataset['Close']
   #dataset['Low_High'] = dataset['Low']/dataset['High']

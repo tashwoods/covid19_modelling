@@ -32,5 +32,6 @@ import csv
 import requests
 import json
 
-from organize_input_output import *
 from plot import *
+from organize_input_output import *
+

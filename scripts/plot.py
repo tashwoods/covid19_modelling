@@ -24,12 +24,6 @@ def get_shifted_prediction(area_df, var, slope, intercept, best_growth_rate, arg
   return x, y, y_best
 
 def get_lives_saved_bar_chart(x_predict, y_predict, y_best, name, args, savename):
-  print('lives saved')
-  print(name)
-  print(x_predict)
-  print(y_predict)
-  print(y_best)
-
   plt.close('all')
   lives_saved = y_predict - y_best
   plt.yscale('linear')
@@ -49,7 +43,7 @@ def get_lives_saved_bar_chart(x_predict, y_predict, y_best, name, args, savename
   plt.savefig(args.output_dir + '/' + name + 'livessaved' + savename + '.png')
   plt.close('all')
 
-def plot(area_objects_list, args, plot_type):
+def plot(area_objects_list, args, plot_type, animate):
   #Make Plot Line Colors Pretty 
   col = plt.cm.jet(np.linspace(0,1,round(len(area_objects_list)/2)+5))
   if plot_type == 'unmodified_covid_days' or plot_type == 'per_mil_covid_days':
@@ -74,7 +68,7 @@ def plot(area_objects_list, args, plot_type):
         x_max = len(area_df.index.values) + args.days_of_cv_predict
         x = np.linspace(0,x_max, x_max)
         plt.xlim(0,30)
-        #plt.ylim(10,100000)
+        plt.ylim(1,10000)
         start_date = get_first_cv_day(area, 'notscaled')
         if start_date != -1: #if there has been at least one CV day plot that area
           area_df = area_df[start_date:].reset_index()
@@ -83,25 +77,13 @@ def plot(area_objects_list, args, plot_type):
           intercept = model[0]
           prediction = 10**(model(x))
           x_predict, y_predict, y_best = get_shifted_prediction(area_df, var, model[1], model[0], args.min_growth_rate, area.input_args)
-          get_lives_saved_bar_chart(x_predict, y_predict, y_best, area.name, area.input_args, 'All')
+          #get_lives_saved_bar_chart(x_predict, y_predict, y_best, area.name, area.input_args, 'All')
           #individual impact
           current_indiv_slope = (model[1]/area.population)
-          print('current indiv slope')
-          print(current_indiv_slope)
-          print('min indiv slope')
-          print(args.min_indiv_growth_rate)
-          print('diff')
-          print(current_indiv_slope - args.min_indiv_growth_rate)
           improved_slope = model[1] - (current_indiv_slope - args.min_indiv_growth_rate)
-          print('current slope')
-          print(model[1])
-          print('better slope')
-          print(improved_slope)
           x_predict, y_predict_indiv, y_best_indiv = get_shifted_prediction(area_df, var, model[1], model[0], improved_slope, area.input_args)
-          get_lives_saved_bar_chart(x_predict, y_predict_indiv, y_best_indiv, area.name, area.input_args, 'Individual')
-          #if var == 'total_deaths':
+          #get_lives_saved_bar_chart(x_predict, y_predict_indiv, y_best_indiv, area.name, area.input_args, 'Individual')
           plt.plot(area_df.index.values, area_df[var], label = area.name + ':' + str(slope), linewidth = args.linewidth)
-          #if area.name != 'China' and area.name != 'Hubei': #China and Hubei levelled, don't care to plot their trends
           plt.plot(x_predict,y_predict)
         plt.xlabel('Days since ' + str(args.cv_day_thres_notscaled) + ' Deaths')
         plt.ylabel(get_nice_var_name(var))
@@ -112,6 +94,8 @@ def plot(area_objects_list, args, plot_type):
         plt.xlim(0,30)
         plt.ylim(1,5000)
         if start_date != -1:
+          cv_days_df = pd.DataFrame(list(zip(area_df.index.values, area_df[var].div(area.population)*args.cv_day_thres)), columns = ['cv_days', 'deaths_per_mil'])
+          print(cv_days_df)
           area_df = area_df[start_date:].reset_index()
           if(len(area_df.index.values) < 2):
             continue
@@ -124,6 +108,11 @@ def plot(area_objects_list, args, plot_type):
           plt.plot(x_predict, (y_predict/area.population)*args.cv_day_thres)
         plt.xlabel('Days since 1death/' + get_nice_var_name(args.cv_day_thres) + ' people')
         plt.ylabel(get_nice_var_name(var) + ' per ' + get_nice_var_name(args.cv_day_thres))
+
+        if animate == 1:
+          print('hi')
+          
+          
 
     #Plot Nominal Growth Rates on COVID Days Plots
     if plot_type == 'unmodified_covid_days':
@@ -140,6 +129,22 @@ def plot(area_objects_list, args, plot_type):
     plt.xticks(fontsize = args.tick_font_size)
     plt.savefig(args.output_dir + '/' + var + '_' + plot_type + '.png')
     plt.close('all')
+def simple_get_first_cv_day(country, population, args):
+  cv_thres_per_mil = population*(1/args.cv_day_thres) #will give first day that one in cv_day_thres people in country affected via predict var
+  cv_thres_not_scaled = args.cv_day_thres_notscaled
+
+  truncated_list_per_mil = country[country[args.predict_var] > cv_thres_per_mil]
+  truncated_list_not_scaled = country[country[args.predict_var] > cv_thres_not_scaled]
+
+  first_index_per_mil = -1
+  first_index_not_scaled = -1
+  if len(truncated_list_per_mil) > 0:
+    first_cv_day = truncated_list_per_mil.iloc[0].name
+    first_index_per_mil = country.index.get_loc(first_cv_day)
+  if len(truncated_list_not_scaled) > 0:
+    first_cv_day = truncated_list_not_scaled.iloc[0].name
+    first_index_not_scaled = country.index.get_loc(first_cv_day)
+  return first_index_per_mil, first_index_not_scaled
 
 def get_first_cv_day(country_object, scale):
   args = country_object.input_args
