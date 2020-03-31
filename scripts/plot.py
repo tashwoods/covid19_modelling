@@ -95,7 +95,6 @@ def plot(area_objects_list, args, plot_type, animate):
         plt.ylim(1,5000)
         if start_date != -1:
           cv_days_df = pd.DataFrame(list(zip(area_df.index.values, area_df[var].div(area.population)*args.cv_day_thres)), columns = ['cv_days', 'deaths_per_mil'])
-          print(cv_days_df)
           area_df = area_df[start_date:].reset_index()
           if(len(area_df.index.values) < 2):
             continue
@@ -109,9 +108,6 @@ def plot(area_objects_list, args, plot_type, animate):
         plt.xlabel('Days since 1death/' + get_nice_var_name(args.cv_day_thres) + ' people')
         plt.ylabel(get_nice_var_name(var) + ' per ' + get_nice_var_name(args.cv_day_thres))
 
-        if animate == 1:
-          print('hi')
-          
           
 
     #Plot Nominal Growth Rates on COVID Days Plots

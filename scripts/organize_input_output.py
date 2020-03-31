@@ -1,9 +1,11 @@
 from imported_libraries import *
 
-def get_population(area, pop_df, region_name, pop_name):
+def get_population(area, pop_df, region_name, pop_name, state = -1):
   area_df = pop_df.loc[pop_df[region_name]== area]
-  if area == 'King County': #For Seattle need to choose King county in WA not TX
-    area_df = area_df.loc[area_df['STNAME']== 'Washington']
+  if state != -1:
+    area_df = area_df.loc[area_df['STATE'] == state]
+  #if area == 'King County': #For Seattle need to choose King county in WA not TX
+  #  area_df = area_df.loc[area_df['STNAME']== 'Washington']
   population = int(area_df[pop_name])
   return population
 
@@ -26,7 +28,6 @@ def get_cv_days_df(area_df, population, args):
     cv_days_df_per_mil = pd.DataFrame(list(zip(area_df_per_mil.index.values, area_df_per_mil[args.predict_var].div(population)*args.cv_day_thres)), columns = ['cv_days', 'deaths_per_mil'])
   if start_date_not_scaled != -1:
     cv_days_df_not_scaled = pd.DataFrame(list(zip(area_df_not_scaled.index.values, area_df_not_scaled[args.predict_var])), columns = ['cv_days', 'total_deaths'])
-
   return cv_days_df_per_mil, cv_days_df_not_scaled
 
 def add_attributes(dataset): #Natasha: make this less hardcoded and more dynamic

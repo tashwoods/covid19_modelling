@@ -10,7 +10,7 @@ if __name__ == '__main__':
   #Files User Selected
   parser.add_argument('-selected_countries_file', '--selected_countries_file', type = str, dest = 'selected_countries_file', default = 'selected_areas/countries.txt', help = 'Name of text file with names of countries to process')
   parser.add_argument('-selected_states_file', '--selected_states_file', type = str, dest = 'selected_states_file', default = 'selected_areas/states.txt', help = 'Name of text file with name of US states to process')
-  parser.add_argument('-selected_counties', '--selected_counties_file', type = str, dest = 'selected_counties_file', default = 'selected_areas/counties.txt', help = 'text file with US counties to use')
+  parser.add_argument('-selected_counties', '--selected_counties_file', type = str, dest = 'selected_counties_file', default = 'selected_areas/all_counties.txt', help = 'text file with US counties to use')
   #Variables to Plot
   parser.add_argument('-time_series_variables', '--time_series_variables', type = list, dest = 'time_series_variables', default = ['total_deaths', 'total_cases'], help = 'list of variables to plot in time series')
   #Dataset MetaInfo
@@ -84,7 +84,6 @@ if __name__ == '__main__':
   country_area_df = country_area_df[[args.country_var_name, new_land_area_name]]
 
   land_area_df = pd.concat([county_area_df, state_area_df, country_area_df])
-  print(land_area_df)
 
   area_objects_list = list()
   #Obtain country level dataframe
@@ -139,26 +138,44 @@ if __name__ == '__main__':
   county_population_df = pd.read_csv(args.us_county_pop_file, encoding='latin-1')
   county_population_df = county_population_df.loc[county_population_df['YEAR'] == args.county_pop_year]
   county_population_df = county_population_df.loc[county_population_df['AGEGRP'] == args.county_pop_age_group]
-  selected_counties = open(args.selected_counties_file, "r")
+
+  #selected_counties = open(args.selected_counties_file, "r")
+  selected_counties = pd.read_csv(args.selected_counties_file)
+  selected_counties = selected_counties[['County', 'State', 'TotalPop']]
+
+
   counties_dataframe = pd.read_csv(args.county_data_file, parse_dates = [args.date_name])
   counties_dataframe = counties_dataframe.rename(columns = {'state': 'location', 'cases': 'total_cases', 'deaths': 'total_deaths'})
   #Split state dataframe by state, and compute and append cumulative variables
-  for county in selected_counties:
+
+  
+  #for county in selected_counties:
+  counties_obj_list = list()
+  for ind in selected_counties.index:
+    county = selected_counties['County'][ind]
+    state = selected_counties['State'][ind]
     if len(county.strip()) > 0:
       county = county.rstrip()
-      population = get_population(county, county_population_df, args.county_pop_region_name, args.county_pop_var_name)
+      #population = get_population(county, county_population_df, args.county_pop_region_name, args.county_pop_var_name, state)
+      population = selected_counties['TotalPop'][ind]
+
       area = land_area_df.loc[land_area_df[args.country_var_name] == country, new_land_area_name]
 
       county = county.rsplit(' ', 1)[0]
       this_county_df = counties_dataframe.loc[counties_dataframe[args.county_var_name] == county]
-      this_county_df = this_county_df.sort_values(by=[args.date_name])
-      #this_state_df[args.name_total_cases] = this_state_df['new_cases'].cumsum()
-      this_county_df['new_cases'] = this_county_df['total_cases'].diff()
-      this_county_df['new_deaths'] = this_county_df['total_deaths'].diff()
-      this_county_df.fillna(0, inplace = True)
-      cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_county_df, population, args)
-      area_object = area_corona_class(county, this_county_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled)
-      area_objects_list.append(area_object)
+      this_county_df = this_county_df.loc[this_county_df['location'] == state]
+      if this_county_df.empty != True:
+        this_county_df = this_county_df.sort_values(by=[args.date_name])
+        this_county_df = this_county_df.dropna()
+        #this_state_df[args.name_total_cases] = this_state_df['new_cases'].cumsum()
+        this_county_df['new_cases'] = this_county_df['total_cases'].diff()
+        this_county_df['new_deaths'] = this_county_df['total_deaths'].diff()
+        this_county_df.fillna(0, inplace = True)
+        cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_county_df, population, args)
+
+        area_object = area_corona_class(county, this_county_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled, this_county_df.iloc[0]['fips'])
+        area_objects_list.append(area_object)
+        counties_obj_list.append(area_object)
 
   #Process Hubei Data
   hubei_pop = 11000000
@@ -175,44 +192,61 @@ if __name__ == '__main__':
 
 
   if(args.plot_time_series == 1):
-    plot(area_objects_list, args, 'unmodified', 0)
-    plot(area_objects_list, args, 'per_mil', 0)
-    plot(area_objects_list, args, 'unmodified_covid_days', 0)
-    plot(area_objects_list, args, 'per_mil_covid_days', 1)
+    print('hi')
+    #plot(area_objects_list, args, 'unmodified', 0)
+    #plot(area_objects_list, args, 'per_mil', 0)
+    #plot(area_objects_list, args, 'unmodified_covid_days', 0)
+    #plot(area_objects_list, args, 'per_mil_covid_days', 1)
 
-  print('checking objects~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-  plt.close('all')
-  col = plt.cm.jet(np.linspace(0,1,round(len(area_objects_list)/2)+5))
-  line_cycler = cycler('color', col,)
-  plt.rc('axes', prop_cycle = line_cycler)
 
-  print('processing per mil')
-  plt.xlim(0,30)
-  plt.ylim(1,5000)
-  for obj in area_objects_list:
-    print(obj.name)
-    cv_days_df_per_mil = obj.cv_days_df_per_mil
-    if len(cv_days_df_per_mil.index) > 1:
-      print(cv_days_df_per_mil)
-      plt.plot(cv_days_df_per_mil['cv_days'], cv_days_df_per_mil['deaths_per_mil'], label = obj.name)
-  plt.legend()
-  plt.title('deaths per mil')
-  plt.yscale('log')
-  plt.savefig('us_cv_days_deaths_per_mil.pdf')
-  plt.close('all')
+vmin, vmax = 0, 1000
+df_list = list()
 
-  print('processing total deaths')
-  plt.xlim(0,30)
-  plt.ylim(1,10000)
-  for obj in area_objects_list:
-    print(obj.name)
-    cv_days_df_not_scaled = obj.cv_days_df_not_scaled
-    print(type(cv_days_df_not_scaled))
-    if len(cv_days_df_not_scaled.index) > 1:
-      print(obj.name)
-      plt.plot(cv_days_df_not_scaled['cv_days'], cv_days_df_not_scaled['total_deaths'], label = obj.name)
-  plt.legend()
-  plt.title('total_deaths')
-  plt.yscale('log')
-  plt.savefig('us_cv_days_deaths.pdf')
+for day in range(10):
+  fips = list()
+  deaths_per_mil = list()
+  cv_days = list()
+  print(day)
+  print(type(day))
+  fips = list()
+  deaths_per_mil = list()
+  cv_days = list()
+  for i in range(len(counties_obj_list)):
+    county = counties_obj_list[i]
+    thiscounty = county.cv_days_df_per_mil
+    if(len(thiscounty.index) > 10):
+      this_day = thiscounty.iloc[[str(day)]]
+      this_death = this_day['deaths_per_mil'].values
+      fips.append(str(int(county.fips)))
+      deaths_per_mil.append(float(this_death))
+      cv_days.append(day)
+  this_df_now = pd.DataFrame({'cv_day':cv_days, 'fips': fips, 'deaths_per_mil': deaths_per_mil})
+  df_list.append(this_df_now)
 
+with urlopen('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json') as response:
+    counties = json.load(response)
+
+df = df_list[0]
+fig = px.choropleth(df, geojson=counties, locations='fips', color='deaths_per_mil',
+                           color_continuous_scale="Viridis",
+                           range_color=(0,3000),
+                           scope="usa",
+                           labels={'deaths_per_mil':'Deaths Per Million People'}
+                          )
+with urlopen('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json') as response:
+    counties = json.load(response)
+
+df = pd.read_csv("https://raw.githubusercontent.com/plotly/datasets/master/fips-unemp-16.csv",
+                   dtype={"fips": str})
+
+fig.show()
+fig.write_image('test.png')
+exit()
+fig = px.choropleth(df, geojson=counties, locations='fips', color='unemp',
+                           color_continuous_scale="Viridis",
+                           range_color=(0, 12),
+                           scope="usa",
+                           labels={'unemp':'unemployment rate'}
+                          )
+fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+fig.show()
