@@ -150,23 +150,30 @@ if __name__ == '__main__':
     county = selected_counties['County'][ind]
     state = selected_counties['State'][ind]
     if len(county.strip()) > 0:
-      county = county.rstrip()
+      #county = county.rstrip()
       population = selected_counties['TotalPop'][ind]
       area = land_area_df.loc[land_area_df[args.country_var_name] == country, new_land_area_name]
       this_county_df = counties_dataframe.loc[counties_dataframe[args.county_var_name] == county]
       this_county_df = this_county_df.loc[this_county_df['location'] == state]
-      if county == 'New York City':
-        this_county_df['fips'].fillna(36061, inplace=True)
+
       if this_county_df.empty != True:
-        this_county_df = this_county_df.sort_values(by=[args.date_name])
-        this_county_df = this_county_df.dropna()
-        this_county_df['new_cases'] = this_county_df['total_cases'].diff()
-        this_county_df['new_deaths'] = this_county_df['total_deaths'].diff()
-        this_county_df.fillna(0, inplace = True)
-        cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_county_df, population, args)
-        area_object = area_corona_class(county, this_county_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled, this_county_df.iloc[0]['fips'])
-        area_objects_list.append(area_object)
-        counties_obj_list.append(area_object)
+        if county != 'New York City':
+          this_county_df = this_county_df.sort_values(by=[args.date_name])
+          this_county_df = this_county_df.dropna()
+          this_county_df['new_cases'] = this_county_df['total_cases'].diff()
+          this_county_df['new_deaths'] = this_county_df['total_deaths'].diff()
+          this_county_df.fillna(0, inplace = True)
+          cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_county_df, population, args)
+          area_object = area_corona_class(county, this_county_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled, this_county_df.iloc[0]['fips'])
+          area_objects_list.append(area_object)
+          counties_obj_list.append(area_object)
+        else:
+          nyc_fips = [36005, 36047, 36061, 36081, 36085] #nyt dataset combines nyc counties, expand them here for map plot
+          for this_nyc_fip in nyc_fips:
+            this_county_df['fips'].fillna(this_nyc_fip, inplace=True)
+            area_object = area_corona_class(county, this_county_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled, this_nyc_fip)
+            area_objects_list.append(area_object)
+            counties_obj_list.append(area_object)
 
         if county == 'New York City' or county == 'Los Angeles' or county == 'Santa Clara' or county == 'King':
           print(county)
@@ -194,7 +201,7 @@ if __name__ == '__main__':
 
 
 #Make GIFs of time series variables for US counties
-ndays = 3
+ndays = 30
 df_list = list()
 maxes = list()
 #create area_object dataframes list per day for GIFs
@@ -209,10 +216,10 @@ for day in range(ndays):
     fips.append(counties_obj_list[i].fips)
     county = counties_obj_list[i].cv_days_df_per_mil
     if county.empty:
-      deaths_per_mil.append(0)
+      deaths_per_mil.append(-100)
       continue
     if (len(county.index) - 1) < day: #if there is not data for given county for selected day
-      deaths_per_mil.append(0)
+      deaths_per_mil.append(-100)
     else:
       deaths_per_mil.append(county['deaths_per_mil'].iloc[day])
       #deaths_per_mil.append(-10)
@@ -232,8 +239,8 @@ for var in variables:
   this_variable_max_array = list()
   for i in range(ndays):
     df = df_list[i]
-    this_variable_max_array.append(np.nanpercentile(df[var], 90))
-    print(np.nanpercentile(df[var], 90))
+    this_variable_max_array.append(np.nanpercentile(df[var], 95))
+    print(np.nanpercentile(df[var], 95))
   variable_maxes.append(max(this_variable_max_array))
   print(max(this_variable_max_array))
 
@@ -249,23 +256,29 @@ for var,vmax in zip(variables, variable_maxes):
     counties_df = pd.DataFrame(counties)
 
     merged_inner = pd.merge(counties_df, df, how = 'outer', on = 'fips')
-    merged_inner[var] = merged_inner[var].fillna(0)
+    merged_inner[var] = merged_inner[var].fillna(-100) #in case some counties have not reported fill empty values with -1 for heatmap
     merged_inner = merged_inner[merged_inner['STATE']!= '15'] #Exlude Hawaii
     merged_inner = merged_inner[merged_inner['STATE']!= '02'] #Exclude Alaska
     merged_inner = merged_inner[merged_inner['STATE'] != '72'] #Exclude Puerto Rico
-    #mymerged_inner = merged_inner[merged_inner[var]!= 0]
     combined_geo = geopandas.GeoDataFrame(merged_inner)
 
-    ax = combined_geo.plot(column = var, figsize=(15,10))
+    fig, ax = plt.subplots(1,1)
+    my_cmap = plt.cm.get_cmap('jet')
+    my_cmap.set_under('grey')
+    sm = plt.cm.ScalarMappable(cmap=my_cmap, norm=plt.Normalize(vmin=vmin, vmax=vmax))
+    plt.rc('font', size = 40)
+
+    #current_cmap.set_bad('red', alpha=1.)
+
+    ax = combined_geo.plot(column = var, figsize=(120,80), cmap = my_cmap, vmin=vmin, vmax=vmax)
     plt.title('CV Outbreak Day ' + str(i))
     plt.axis('off')
 
+    print(merged_inner[var])
     # add colorbar
     fig = ax.get_figure()
     cax = fig.add_axes([0.1, 0.2, 0.8, 0.01])
-    current_cmap = plt.cm.get_cmap()
-    current_cmap.set_under('red', alpha = 1.)
-    sm = plt.cm.ScalarMappable(cmap='jet', norm=plt.Normalize(vmin=vmin, vmax=vmax))
+
 
     print('changed color bad')
     fig.colorbar(sm, orientation = 'horizontal', aspect = 80, label = get_nice_var_name(var), cax = cax)
