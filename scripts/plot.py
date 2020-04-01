@@ -11,6 +11,8 @@ def get_nice_var_name(var):
     return 'New Deaths'
   if var == 1000000:
     return '1M'
+  if var == 'deaths_per_mil':
+    return 'Deaths (per 1,000,000)'
 
 def get_shifted_prediction(area_df, var, slope, intercept, best_growth_rate, args):
   last_x = len(area_df.index.values) - 1

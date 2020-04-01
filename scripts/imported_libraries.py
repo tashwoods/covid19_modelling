@@ -34,8 +34,9 @@ import json
 from urllib.request import urlopen
 import plotly.express as px
 import geopandas
-import imageio
-from mpl_toolkits.mplot3d import Axes3D
+#import imageio
+#from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.animation import FuncAnimation
 
 
 

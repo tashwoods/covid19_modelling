@@ -209,9 +209,10 @@ if __name__ == '__main__':
     #plot(area_objects_list, args, 'per_mil_covid_days', 1)
 
 
-ndays = 1
+ndays = 10
 
 df_list = list()
+maxes = list()
 for day in range(ndays):
   fips = list()
   deaths_per_mil = list()
@@ -227,52 +228,69 @@ for day in range(ndays):
   this_df = pd.DataFrame({'cv_day':cv_days, 'fips': fips, 'deaths_per_mil': deaths_per_mil})
   df_list.append(this_df)
 
-filenames = []
-for i in range(ndays):
-  df = df_list[i]
+variable_maxes = list()
+variables = ['deaths_per_mil']
+for var in variables:
+  this_variable_max_array = list()
+  for i in range(ndays):
+    print(i)
+    df = df_list[i]
+    print(df[var].max())
+    this_variable_max_array.append(df[var].max())
+    id = df[var].idxmax()
+    print('max row')
+    print(df.iloc[id,:])
+  variable_maxes.append(max(this_variable_max_array))
+  print(max(this_variable_max_array))
 
-  counties = geopandas.read_file('../data/map_data/geojson-counties-fips.json')
-  counties['fips'] = counties['id'].astype(int)
-  counties_df = pd.DataFrame(counties)
+for var,vmax in zip(variables, variable_maxes):
+  filenames = []
+  for i in range(ndays):
+    df = df_list[i]
+    vmin = 0
 
-
-  merged_inner = pd.merge(counties_df, df, how = 'outer', on = 'fips')
-  merged_inner['deaths_per_mil'] = merged_inner['deaths_per_mil'].fillna(0)
-  merged_inner = merged_inner[merged_inner['STATE']!= '15'] #exlude Hawaii
-  merged_inner = merged_inner[merged_inner['STATE']!= '02'] #exclude Alaska
-  merged_inner = merged_inner[merged_inner['STATE'] != '72'] #exclude Puerto Rico
-  pd.set_option('display.max_rows', None)
-  mymerged_inner = merged_inner[merged_inner['deaths_per_mil']!= 0]
-  combined_geo = geopandas.GeoDataFrame(merged_inner)
-
-  vmin = 0
-  vmax = 30
-  ax = combined_geo.plot(column = 'deaths_per_mil', figsize=(15,10))
-  plt.title('CV Outbreak Day ' + str(i))
-  plt.axis('off')
-
-  # add colorbar
-  fig = ax.get_figure()
-  cax = fig.add_axes([0.1, 0.1, 0.8, 0.01])
-  sm = plt.cm.ScalarMappable(cmap='jet', norm=plt.Normalize(vmin=vmin, vmax=vmax))
-  # fake up the array of the scalar mappable. Urgh...
-  #sm._A = []
-  fig.colorbar(sm, orientation = 'horizontal', aspect = 80, label = 'COVID-19 Deaths Per Million', cax = cax)
+    counties = geopandas.read_file('../data/map_data/geojson-counties-fips.json')
+    counties['fips'] = counties['id'].astype(int)
+    counties_df = pd.DataFrame(counties)
 
 
-  #ax = combined_geo.plot(column = 'deaths_per_mil', ax = ax, legend = True, legend_kwds = {'label': 'COVID-19 Deaths Per Million', 'orientation': 'horizontal'}, vmin = 0, vmax = 30)
+    merged_inner = pd.merge(counties_df, df, how = 'outer', on = 'fips')
+    merged_inner[var] = merged_inner[var].fillna(0)
+    merged_inner = merged_inner[merged_inner['STATE']!= '15'] #Exlude Hawaii
+    merged_inner = merged_inner[merged_inner['STATE']!= '02'] #Exclude Alaska
+    merged_inner = merged_inner[merged_inner['STATE'] != '72'] #Exclude Puerto Rico
+    mymerged_inner = merged_inner[merged_inner[var]!= 0]
+    combined_geo = geopandas.GeoDataFrame(merged_inner)
 
-  #plt.axis('off')
+
+    ax = combined_geo.plot(column = var, figsize=(15,10))
+    plt.title('CV Outbreak Day ' + str(i))
+    plt.axis('off')
+
+    # add colorbar
+    fig = ax.get_figure()
+    cax = fig.add_axes([0.1, 0.2, 0.8, 0.01])
+    sm = plt.cm.ScalarMappable(cmap='jet', norm=plt.Normalize(vmin=vmin, vmax=vmax))
+    fig.colorbar(sm, orientation = 'horizontal', aspect = 80, label = get_nice_var_name(var), cax = cax)
 
 
-  filename = args.output_dir + '/counties' + str(i) + '.jpg'
-  filenames.append(filename)
-  plt.tight_layout()
-  plt.savefig(filename)
-  plt.close('all')
+    filename = args.output_dir + '/counties_' + var + '_' + str(i) + '.jpg'
+    filenames.append(filename)
+    #plt.tight_layout()
+    plt.savefig(filename, bbox_inches='tight')
+    plt.close('all')
+  make_gif_command = 'convert -delay 60 '
+  for ifile in filenames:
+    make_gif_command += ifile + ' '
+  make_gif_command += args.output_dir + '/' + var + '.gif'
+  print(make_gif_command)
+  os.system('pwd')
+  os.system(make_gif_command)
 
-images = []
-for filename in filenames:
-  image = imageio.imread(filename)
-  images.append(image)
-imageio.mimsave(args.output_dir+'/movie.gif', images)
+
+  exit()
+  images = []
+  for filename in filenames:
+    image = imageio.imread(filename)
+    images.append(image)
+  imageio.mimsave(args.output_dir+'/' + var + '.gif', images)
