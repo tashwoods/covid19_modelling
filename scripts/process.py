@@ -11,7 +11,7 @@ if __name__ == '__main__':
   parser.add_argument('-selected_countries_file', '--selected_countries_file', type = str, dest = 'selected_countries_file', default = 'selected_areas/countries.txt', help = 'Name of text file with names of countries to process')
   parser.add_argument('-selected_states_file', '--selected_states_file', type = str, dest = 'selected_states_file', default = 'selected_areas/states.txt', help = 'Name of text file with name of US states to process')
   #parser.add_argument('-selected_counties', '--selected_counties_file', type = str, dest = 'selected_counties_file', default = 'selected_areas/no_hawaii_alaska_us_counties.txt', help = 'text file with US counties to use')
-  parser.add_argument('-selected_counties', '--selected_counties_file', type = str, dest = 'selected_counties_file', default = 'selected_areas/allcounties.txt', help = 'text file with US counties to use')
+  parser.add_argument('-selected_counties', '--selected_counties_file', type = str, dest = 'selected_counties_file', default = 'selected_areas/no_hawaii_alaska_us_counties.txt', help = 'text file with US counties to use')
   #Variables to Plot
   parser.add_argument('-time_series_variables', '--time_series_variables', type = list, dest = 'time_series_variables', default = ['total_deaths', 'total_cases'], help = 'list of variables to plot in time series')
   #Dataset MetaInfo
@@ -58,6 +58,9 @@ if __name__ == '__main__':
   covid_outbreak_days_name = 'COVID-19 Outbreak Days'
   #Make output folders
   make_output_dir(args.output_dir)
+
+
+
 
   #Collect Output Data
   #Create dictionary of county, state, and country land areas for population density calculations later
@@ -150,39 +153,22 @@ if __name__ == '__main__':
   counties_dataframe = counties_dataframe.rename(columns = {'state': 'location', 'cases': 'total_cases', 'deaths': 'total_deaths'})
   #Split state dataframe by state, and compute and append cumulative variables
 
-  def get_fips(county, counties_dataframe):
-    df = counties_dataframe['fips'].unique()
-  
   #for county in selected_counties:
-  print(counties_dataframe)
   counties_obj_list = list()
   for ind in selected_counties.index:
     county = selected_counties['County'][ind]
     state = selected_counties['State'][ind]
-    if county == 'New York':
-      print('its ny')
     if len(county.strip()) > 0:
-      print(county)
       county = county.rstrip()
-      #population = get_population(county, county_population_df, args.county_pop_region_name, args.county_pop_var_name, state)
       population = selected_counties['TotalPop'][ind]
 
       area = land_area_df.loc[land_area_df[args.country_var_name] == country, new_land_area_name]
 
-      #county = county.rsplit(' ', 1)[0]
-      print(';county again')
-      print(county)
       this_county_df = counties_dataframe.loc[counties_dataframe[args.county_var_name] == county]
-      #if this_county_df.empty == True:
-      #  print('dataframe empty')
-      #  this_county_df = counties_dataframe.loc[counties_dataframe[args.county_var_name].str.contains(county)]
       if county == 'New York City':
-        print('resetting nyc hopefully')
         this_county_df['fips'].fillna(36061, inplace=True)
 
-      #this_county_df = counties_dataframe.loc[counties_dataframe['fips'] == thisfips]
       this_county_df = this_county_df.loc[this_county_df['location'] == state]
-      print(this_county_df)
       if this_county_df.empty != True:
         this_county_df = this_county_df.sort_values(by=[args.date_name])
         this_county_df = this_county_df.dropna()
@@ -192,7 +178,10 @@ if __name__ == '__main__':
         this_county_df.fillna(0, inplace = True)
         cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_county_df, population, args)
 
-        print(cv_days_df_per_mil)
+        if county == 'New York City' or county == 'Los Angeles' or county == 'Santa Clara' or county == 'King':
+          print(county)
+          print(cv_days_df_per_mil)
+
         area_object = area_corona_class(county, this_county_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled, this_county_df.iloc[0]['fips'])
         #area_objects_list.append(area_object)
         area_objects_list.append(area_object)
@@ -217,18 +206,16 @@ if __name__ == '__main__':
     #plot(area_objects_list, args, 'unmodified', 0)
     #plot(area_objects_list, args, 'per_mil', 0)
     #plot(area_objects_list, args, 'unmodified_covid_days', 0)
-    plot(area_objects_list, args, 'per_mil_covid_days', 1)
+    #plot(area_objects_list, args, 'per_mil_covid_days', 1)
 
 
-ndays = 5
+ndays = 1
 
 df_list = list()
 for day in range(ndays):
   fips = list()
   deaths_per_mil = list()
   cv_days = list()
-  print(day)
-  print(type(day))
   for i in range(len(counties_obj_list)):
     county = counties_obj_list[i].cv_days_df_per_mil
     if(len(county.index) > ndays):
@@ -256,26 +243,31 @@ for i in range(ndays):
   merged_inner = merged_inner[merged_inner['STATE'] != '72'] #exclude Puerto Rico
   pd.set_option('display.max_rows', None)
   mymerged_inner = merged_inner[merged_inner['deaths_per_mil']!= 0]
-  print('DAY' + str(i))
-  #print(mymerged_inner)
-  print('new york')
-  print(merged_inner[merged_inner['fips']==61])
-  print(merged_inner[merged_inner['fips']==6085])
-  #mymerged_inner.sort(['NAME'])
-  #print(mymerged_inner)
   combined_geo = geopandas.GeoDataFrame(merged_inner)
 
-  fig, ax = plt.subplots(1,1, figsize=(15,15))
-  ax = combined_geo.plot(column = 'deaths_per_mil', ax = ax, legend = True, legend_kwds = {'label': 'COVID-19 Deaths Per Million', 'orientation': 'horizontal'}, vmin = 0, vmax = 30)
-
-  plt.axis('off')
+  vmin = 0
+  vmax = 30
+  ax = combined_geo.plot(column = 'deaths_per_mil', figsize=(15,10))
   plt.title('CV Outbreak Day ' + str(i))
-  #plt.tick_params(axis = 'y', which = 'both', bottom = False, top = False, labelbottom = False)
-  #plt.tick_params(axis = 'x', which = 'both', bottom = False, top = False, labelbottom = False)
-  #fig.add_axes([0.1,0.1,0.9,0.9])
+  plt.axis('off')
+
+  # add colorbar
+  fig = ax.get_figure()
+  cax = fig.add_axes([0.1, 0.1, 0.8, 0.01])
+  sm = plt.cm.ScalarMappable(cmap='jet', norm=plt.Normalize(vmin=vmin, vmax=vmax))
+  # fake up the array of the scalar mappable. Urgh...
+  #sm._A = []
+  fig.colorbar(sm, orientation = 'horizontal', aspect = 80, label = 'COVID-19 Deaths Per Million', cax = cax)
+
+
+  #ax = combined_geo.plot(column = 'deaths_per_mil', ax = ax, legend = True, legend_kwds = {'label': 'COVID-19 Deaths Per Million', 'orientation': 'horizontal'}, vmin = 0, vmax = 30)
+
+  #plt.axis('off')
+
 
   filename = args.output_dir + '/counties' + str(i) + '.jpg'
   filenames.append(filename)
+  plt.tight_layout()
   plt.savefig(filename)
   plt.close('all')
 
