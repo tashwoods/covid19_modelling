@@ -56,14 +56,12 @@ if __name__ == '__main__':
 
   #Internally Defined Variables
   covid_outbreak_days_name = 'COVID-19 Outbreak Days'
-  #Make output folders
+  #Make output folders and objects
   make_output_dir(args.output_dir)
-
-
-
+  area_objects_list = list() #where all area objects stored
 
   #Collect Output Data
-  #Create dictionary of county, state, and country land areas for population density calculations later
+  #Create dataframe of county, state, and country land areas for population density calculations later
   area_name = 'Geographic area'
   land_area_name = 'Area in square miles - Land area'
   new_land_area_name = 'land_area' #in square miles
@@ -88,9 +86,8 @@ if __name__ == '__main__':
   country_area_df[new_land_area_name] = country_area_df[year_country_land_area]*mile_to_km_squared #bc countries saved in km2
   country_area_df = country_area_df[[args.country_var_name, new_land_area_name]]
 
-  land_area_df = pd.concat([county_area_df, state_area_df, country_area_df])
+  land_area_df = pd.concat([county_area_df, state_area_df, country_area_df]) #add all land area dataframes together
 
-  area_objects_list = list()
   #Obtain country level dataframe
   selected_countries = open(args.selected_countries_file, 'r')
   country_dataframe = pd.read_csv(args.country_data_file, parse_dates = [args.date_name])
@@ -102,9 +99,9 @@ if __name__ == '__main__':
       area = land_area_df.loc[land_area_df[args.country_var_name] == country, new_land_area_name]
       cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_country_df, population, args)
       area_object = area_corona_class(country, this_country_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled)
-
       area_objects_list.append(area_object)
-    if country == 'Chinaz': #Scale China's dataset to see if their reporting seems accurate
+
+    if country == 'Chinaz': #Scale China's dataset to test veracity of their dataset relative to other areas
       this_country_df = full_dataframe[full_dataframe[args.country_var_name].str.match(country)]
       for var in args.time_series_variables:
         scale_china = 3000
@@ -120,7 +117,6 @@ if __name__ == '__main__':
   state_population_df = pd.read_csv(args.us_state_population_file)
   selected_states = open(args.selected_states_file, "r")
   state_dataframe = pd.read_csv(args.state_data_file, parse_dates = [args.date_name])
-  #state_dataframe.fillna(0, inplace=True)
   state_dataframe = state_dataframe.rename(columns = {'state': 'location', 'cases': 'total_cases', 'deaths': 'total_deaths'})
   #Split state dataframe by state, and compute and append cumulative variables
   for state in selected_states :
@@ -131,7 +127,6 @@ if __name__ == '__main__':
 
       this_state_df = state_dataframe[state_dataframe[args.country_var_name].str.match(state)]
       this_state_df = this_state_df.sort_values(by=[args.date_name])
-      #this_state_df[args.name_total_cases] = this_state_df['new_cases'].cumsum()
       this_state_df['new_cases'] = this_state_df['total_cases'].diff()
       this_state_df['new_deaths'] = this_state_df['total_deaths'].diff()
       this_state_df.fillna(0, inplace = True)
@@ -141,19 +136,15 @@ if __name__ == '__main__':
 
   #Obtain US County level dataframe
   county_population_df = pd.read_csv(args.us_county_pop_file, encoding='latin-1')
-  county_population_df = county_population_df.loc[county_population_df['YEAR'] == args.county_pop_year]
-  county_population_df = county_population_df.loc[county_population_df['AGEGRP'] == args.county_pop_age_group]
+  county_population_df = county_population_df.loc[county_population_df['YEAR'] == args.county_pop_year]#require most up to date year
+  county_population_df = county_population_df.loc[county_population_df['AGEGRP'] == args.county_pop_age_group]#include all age group
 
-  #selected_counties = open(args.selected_counties_file, "r")
   selected_counties = pd.read_csv(args.selected_counties_file)
   selected_counties = selected_counties[['County', 'State', 'TotalPop']]
-
 
   counties_dataframe = pd.read_csv(args.county_data_file, parse_dates = [args.date_name])
   counties_dataframe = counties_dataframe.rename(columns = {'state': 'location', 'cases': 'total_cases', 'deaths': 'total_deaths'})
   #Split state dataframe by state, and compute and append cumulative variables
-
-  #for county in selected_counties:
   counties_obj_list = list()
   for ind in selected_counties.index:
     county = selected_counties['County'][ind]
@@ -161,31 +152,25 @@ if __name__ == '__main__':
     if len(county.strip()) > 0:
       county = county.rstrip()
       population = selected_counties['TotalPop'][ind]
-
       area = land_area_df.loc[land_area_df[args.country_var_name] == country, new_land_area_name]
-
       this_county_df = counties_dataframe.loc[counties_dataframe[args.county_var_name] == county]
+      this_county_df = this_county_df.loc[this_county_df['location'] == state]
       if county == 'New York City':
         this_county_df['fips'].fillna(36061, inplace=True)
-
-      this_county_df = this_county_df.loc[this_county_df['location'] == state]
       if this_county_df.empty != True:
         this_county_df = this_county_df.sort_values(by=[args.date_name])
         this_county_df = this_county_df.dropna()
-        #this_state_df[args.name_total_cases] = this_state_df['new_cases'].cumsum()
         this_county_df['new_cases'] = this_county_df['total_cases'].diff()
         this_county_df['new_deaths'] = this_county_df['total_deaths'].diff()
         this_county_df.fillna(0, inplace = True)
         cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_county_df, population, args)
+        area_object = area_corona_class(county, this_county_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled, this_county_df.iloc[0]['fips'])
+        area_objects_list.append(area_object)
+        counties_obj_list.append(area_object)
 
         if county == 'New York City' or county == 'Los Angeles' or county == 'Santa Clara' or county == 'King':
           print(county)
           print(cv_days_df_per_mil)
-
-        area_object = area_corona_class(county, this_county_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled, this_county_df.iloc[0]['fips'])
-        #area_objects_list.append(area_object)
-        area_objects_list.append(area_object)
-        counties_obj_list.append(area_object)
 
   #Process Hubei Data
   hubei_pop = 11000000
@@ -199,8 +184,7 @@ if __name__ == '__main__':
   area_object = area_corona_class('Hubei', hubei_df, hubei_pop, hubei_area, args, cv_days_df_per_mil, cv_days_df_not_scaled)
   area_objects_list.append(area_object)
 
-
-
+  #Plot Time Series of variables
   if(args.plot_time_series == 1):
     print('hi')
     #plot(area_objects_list, args, 'unmodified', 0)
@@ -209,22 +193,36 @@ if __name__ == '__main__':
     #plot(area_objects_list, args, 'per_mil_covid_days', 1)
 
 
-ndays = 10
-
+#Make GIFs of time series variables for US counties
+ndays = 3
 df_list = list()
 maxes = list()
+#create area_object dataframes list per day for GIFs
 for day in range(ndays):
   fips = list()
   deaths_per_mil = list()
   cv_days = list()
-  for i in range(len(counties_obj_list)):
+  for i in range(len(counties_obj_list)): #loop thru US counties
+    print('total counties')
+    print(len(counties_obj_list))
+    cv_days.append(day)
+    fips.append(counties_obj_list[i].fips)
     county = counties_obj_list[i].cv_days_df_per_mil
-    if(len(county.index) > ndays):
-      this_day = county.iloc[[str(day)]]
-      deaths = this_day['deaths_per_mil'].values
-      fips.append(counties_obj_list[i].fips)
-      deaths_per_mil.append(float(deaths))
-      cv_days.append(day)
+    if county.empty:
+      deaths_per_mil.append(0)
+      continue
+    if (len(county.index) - 1) < day: #if there is not data for given county for selected day
+      deaths_per_mil.append(0)
+    else:
+      deaths_per_mil.append(county['deaths_per_mil'].iloc[day])
+      #deaths_per_mil.append(-10)
+
+  print(cv_days)
+  print(fips)
+  print(deaths_per_mil)
+  print('entries cv days: {}'.format(len(cv_days)))
+  print('entries fips: {}'.format(len(fips)))
+  print('entries deaths per mil: {}'.format(len(deaths_per_mil)))
   this_df = pd.DataFrame({'cv_day':cv_days, 'fips': fips, 'deaths_per_mil': deaths_per_mil})
   df_list.append(this_df)
 
@@ -233,13 +231,9 @@ variables = ['deaths_per_mil']
 for var in variables:
   this_variable_max_array = list()
   for i in range(ndays):
-    print(i)
     df = df_list[i]
-    print(df[var].max())
-    this_variable_max_array.append(df[var].max())
-    id = df[var].idxmax()
-    print('max row')
-    print(df.iloc[id,:])
+    this_variable_max_array.append(np.nanpercentile(df[var], 90))
+    print(np.nanpercentile(df[var], 90))
   variable_maxes.append(max(this_variable_max_array))
   print(max(this_variable_max_array))
 
@@ -247,21 +241,20 @@ for var,vmax in zip(variables, variable_maxes):
   filenames = []
   for i in range(ndays):
     df = df_list[i]
+    print(df)
     vmin = 0
 
     counties = geopandas.read_file('../data/map_data/geojson-counties-fips.json')
     counties['fips'] = counties['id'].astype(int)
     counties_df = pd.DataFrame(counties)
 
-
     merged_inner = pd.merge(counties_df, df, how = 'outer', on = 'fips')
     merged_inner[var] = merged_inner[var].fillna(0)
     merged_inner = merged_inner[merged_inner['STATE']!= '15'] #Exlude Hawaii
     merged_inner = merged_inner[merged_inner['STATE']!= '02'] #Exclude Alaska
     merged_inner = merged_inner[merged_inner['STATE'] != '72'] #Exclude Puerto Rico
-    mymerged_inner = merged_inner[merged_inner[var]!= 0]
+    #mymerged_inner = merged_inner[merged_inner[var]!= 0]
     combined_geo = geopandas.GeoDataFrame(merged_inner)
-
 
     ax = combined_geo.plot(column = var, figsize=(15,10))
     plt.title('CV Outbreak Day ' + str(i))
@@ -270,7 +263,11 @@ for var,vmax in zip(variables, variable_maxes):
     # add colorbar
     fig = ax.get_figure()
     cax = fig.add_axes([0.1, 0.2, 0.8, 0.01])
+    current_cmap = plt.cm.get_cmap()
+    current_cmap.set_under('red', alpha = 1.)
     sm = plt.cm.ScalarMappable(cmap='jet', norm=plt.Normalize(vmin=vmin, vmax=vmax))
+
+    print('changed color bad')
     fig.colorbar(sm, orientation = 'horizontal', aspect = 80, label = get_nice_var_name(var), cax = cax)
 
 
@@ -279,7 +276,7 @@ for var,vmax in zip(variables, variable_maxes):
     #plt.tight_layout()
     plt.savefig(filename, bbox_inches='tight')
     plt.close('all')
-  make_gif_command = 'convert -delay 60 '
+  make_gif_command = 'convert -delay 200 '
   for ifile in filenames:
     make_gif_command += ifile + ' '
   make_gif_command += args.output_dir + '/' + var + '.gif'
