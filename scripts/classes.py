@@ -9,4 +9,4 @@ class area_corona_class:
     self.area = area
     self.cv_days_df_per_mil = cv_days_df_per_mil
     self.cv_days_df_not_scaled = cv_days_df_not_scaled
-    self.fips = fips
+    self.fips = int(fips)
