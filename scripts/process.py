@@ -37,13 +37,15 @@ if __name__ == '__main__':
   parser.add_argument('-county_area_file', '--county_area_file', type = str, dest = 'county_area_file', default = '../data/land_data/us_county_land_area.csv', help = 'file with land area of US counties')
   parser.add_argument('-state_area_file', '--state_area_file', type = str, dest = 'state_area_file', default = '../data/land_data/us_state_land_area.csv', help = 'file with land area of US states')
   parser.add_argument('-country_area_file', '--country_area_file', type = str, dest = 'country_area_file', default = '../data/land_data/countries_land_area.csv', help = 'file with area of countries')
+  #Geopandas file for US counties
+  parser.add_argument('-county_map_file', '--county_map_file', type = str, dest = 'county_map_file', default = '../data/map_data/geojson-counties-fips.json', help = 'file that has map data for US counties')
   #Specify output and its final location
   parser.add_argument('-output_dir', '--output_dir', type = str, dest = 'output_dir', default = 'output', help = 'name of output_dir')
   parser.add_argument('-plot_time_series', '--plot_time_series', type = int, dest = 'plot_time_series', default = 1, help = 'set to one to plot time series, zero to not')
   parser.add_argument('-growth_rates', '--growth_rates', type = list, dest = 'growth_rates', default = [1.35], help = 'list of growth rates to plot')
   #Analysis Variables
   parser.add_argument('-cv_day_thres', '--cv_day_thres', type = int, dest = 'cv_day_thres', default = 1000000, help = 'total number of cases to consider it the first day of cv19')
-  parser.add_argument('-cv_day_thres_notscaled', '--cv_day_thres_notscaled', type = int, dest = 'cv_day_thres_notscaled', default = 5, help = 'minimum number of deaths to start counting CV days from for unscaled data')
+  parser.add_argument('-cv_day_thres_notscaled', '--cv_day_thres_notscaled', type = int, dest = 'cv_day_thres_notscaled', default = 10, help = 'minimum number of deaths to start counting CV days from for unscaled data')
   #Aesthetics : )
   parser.add_argument('-tick_font_size', '--tick_font_size', type = int, dest = 'tick_font_size', default = 8, help = 'size of tick labels in plots')
   parser.add_argument('-plot_y_scale', '--plot_y_scale', type = str, dest = 'plot_y_scale', default = 'log', help = 'scale for y axis, set to linear, log, etc')
@@ -201,106 +203,9 @@ if __name__ == '__main__':
 
 
 #Make GIFs of time series variables for US counties
-ndays = 30
-df_list = list()
-maxes = list()
-#create area_object dataframes list per day for GIFs
-for day in range(ndays):
-  fips = list()
-  deaths_per_mil = list()
-  cv_days = list()
-  for i in range(len(counties_obj_list)): #loop thru US counties
-    print('total counties')
-    print(len(counties_obj_list))
-    cv_days.append(day)
-    fips.append(counties_obj_list[i].fips)
-    county = counties_obj_list[i].cv_days_df_per_mil
-    if county.empty:
-      deaths_per_mil.append(-100)
-      continue
-    if (len(county.index) - 1) < day: #if there is not data for given county for selected day
-      deaths_per_mil.append(-100)
-    else:
-      deaths_per_mil.append(county['deaths_per_mil'].iloc[day])
-      #deaths_per_mil.append(-10)
-
-  print(cv_days)
-  print(fips)
-  print(deaths_per_mil)
-  print('entries cv days: {}'.format(len(cv_days)))
-  print('entries fips: {}'.format(len(fips)))
-  print('entries deaths per mil: {}'.format(len(deaths_per_mil)))
-  this_df = pd.DataFrame({'cv_day':cv_days, 'fips': fips, 'deaths_per_mil': deaths_per_mil})
-  df_list.append(this_df)
-
-variable_maxes = list()
-variables = ['deaths_per_mil']
-for var in variables:
-  this_variable_max_array = list()
-  for i in range(ndays):
-    df = df_list[i]
-    this_variable_max_array.append(np.nanpercentile(df[var], 95))
-    print(np.nanpercentile(df[var], 95))
-  variable_maxes.append(max(this_variable_max_array))
-  print(max(this_variable_max_array))
-
-for var,vmax in zip(variables, variable_maxes):
-  filenames = []
-  for i in range(ndays):
-    df = df_list[i]
-    print(df)
-    vmin = 0
-
-    counties = geopandas.read_file('../data/map_data/geojson-counties-fips.json')
-    counties['fips'] = counties['id'].astype(int)
-    counties_df = pd.DataFrame(counties)
-
-    merged_inner = pd.merge(counties_df, df, how = 'outer', on = 'fips')
-    merged_inner[var] = merged_inner[var].fillna(-100) #in case some counties have not reported fill empty values with -1 for heatmap
-    merged_inner = merged_inner[merged_inner['STATE']!= '15'] #Exlude Hawaii
-    merged_inner = merged_inner[merged_inner['STATE']!= '02'] #Exclude Alaska
-    merged_inner = merged_inner[merged_inner['STATE'] != '72'] #Exclude Puerto Rico
-    combined_geo = geopandas.GeoDataFrame(merged_inner)
-
-    fig, ax = plt.subplots(1,1)
-    my_cmap = plt.cm.get_cmap('jet')
-    my_cmap.set_under('grey')
-    sm = plt.cm.ScalarMappable(cmap=my_cmap, norm=plt.Normalize(vmin=vmin, vmax=vmax))
-    plt.rc('font', size = 40)
-
-    #current_cmap.set_bad('red', alpha=1.)
-
-    ax = combined_geo.plot(column = var, figsize=(120,80), cmap = my_cmap, vmin=vmin, vmax=vmax)
-    plt.title('CV Outbreak Day ' + str(i))
-    plt.axis('off')
-
-    print(merged_inner[var])
-    # add colorbar
-    fig = ax.get_figure()
-    cax = fig.add_axes([0.1, 0.2, 0.8, 0.01])
+ndays = 3
+make_gif(counties_obj_list, 'df', 'total_deaths', '2020-03-28', '2020-03-30', args)
+#make_gif_cv_days(counties_obj_list, 'cv_days_df_not_scaled', 'total_deaths', ndays, args)
+#make_gif_cv_days(counties_obj_list, 'cv_days_df_per_mil', 'deaths_per_mil', ndays, args)
 
 
-    print('changed color bad')
-    fig.colorbar(sm, orientation = 'horizontal', aspect = 80, label = get_nice_var_name(var), cax = cax)
-
-
-    filename = args.output_dir + '/counties_' + var + '_' + str(i) + '.jpg'
-    filenames.append(filename)
-    #plt.tight_layout()
-    plt.savefig(filename, bbox_inches='tight')
-    plt.close('all')
-  make_gif_command = 'convert -delay 200 '
-  for ifile in filenames:
-    make_gif_command += ifile + ' '
-  make_gif_command += args.output_dir + '/' + var + '.gif'
-  print(make_gif_command)
-  os.system('pwd')
-  os.system(make_gif_command)
-
-
-  exit()
-  images = []
-  for filename in filenames:
-    image = imageio.imread(filename)
-    images.append(image)
-  imageio.mimsave(args.output_dir+'/' + var + '.gif', images)

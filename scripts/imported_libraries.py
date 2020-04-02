@@ -37,6 +37,7 @@ import geopandas
 #import imageio
 #from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.animation import FuncAnimation
+from datetime import datetime, timedelta, date #for time dependent gif plots
 
 
 
