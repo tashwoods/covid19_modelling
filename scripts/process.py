@@ -15,7 +15,7 @@ if __name__ == '__main__':
   #Variables to Plot
   parser.add_argument('-time_series_variables', '--time_series_variables', type = list, dest = 'time_series_variables', default = ['total_deaths'], help = 'list of variables to plot in time series')
   #Dataset MetaInfo
-  parser.add_argument('-country_var_name', '--country_var_name', type = str, dest = 'country_var_name', default = 'location', help = 'country variable name in input dataset')
+  parser.add_argument('-area_var_name', '--area_var_name', type = str, dest = 'area_var_name', default = 'location', help = 'area variable name in input dataset')
   parser.add_argument('-date_name', '--date_name', type = str, dest = 'date_name', default = 'date', help = 'name of date columns in input file')
   parser.add_argument('-n_date_name', '-n_date_name', type = str, dest = 'n_date_name', default = 'Date', help = 'name of date variable for plots')
   parser.add_argument('-name_total_cases', '--name_total_cases', type = str, dest = 'name_total_cases', default = 'total_cases', help = 'name of total case variable in country level file')
@@ -46,6 +46,9 @@ if __name__ == '__main__':
   #Analysis Variables
   parser.add_argument('-cv_day_thres', '--cv_day_thres', type = int, dest = 'cv_day_thres', default = 1000000, help = 'total number of cases to consider it the first day of cv19')
   parser.add_argument('-cv_day_thres_notscaled', '--cv_day_thres_notscaled', type = int, dest = 'cv_day_thres_notscaled', default = 10, help = 'minimum number of deaths to start counting CV days from for unscaled data')
+  parser.add_argument('-n_deaths_per_mil', '--n_deaths_per_mil', type = str, dest = 'n_deaths_per_mil', default = 'deaths_per_mil', help = 'name of deaths_per_mil variable')
+  parser.add_argument('-nyc_fips', '--nyc_fips', type = list, dest = 'nyc_fips', default = [36005, 36047, 36061, 36081, 36085], help = 'list of NYC fips')
+  parser.add_argument('-nyc_fips_to_skip', '--nyc_fips_to_skip', type = list, dest = 'nyc_fips_to_skip', default = [36047, 36061, 36081, 36085], help = 'list of NYC fips to skip')
   #Aesthetics : )
   parser.add_argument('-tick_font_size', '--tick_font_size', type = int, dest = 'tick_font_size', default = 8, help = 'size of tick labels in plots')
   parser.add_argument('-plot_y_scale', '--plot_y_scale', type = str, dest = 'plot_y_scale', default = 'log', help = 'scale for y axis, set to linear, log, etc')
@@ -55,165 +58,199 @@ if __name__ == '__main__':
   parser.add_argument('-min_indiv_growth_rate', '--min_indiv_growth_rate', type = float, dest = 'min_indiv_growth_rate', default = 7.6595717E-10, help = 'minimum individual contribution to growth rate')
   args = parser.parse_args()
 
-  #Internally Defined Variables
+  #Internally Defined Variables-----------------------------------------------------------------------------
   covid_outbreak_days_name = 'COVID-19 Outbreak Days'
-  #Make output folders and objects
+  china_scale = 3000
+  #Make output folders and objects---------------------------------------------------------------------------
   make_output_dir(args.output_dir)
-  area_objects_list = list() #where all area objects stored
+  area_obj_list = list() #where all area objects stored
+  counties_obj_list = list() #where all US county objects stored
 
-  #Collect Output Data
-  #Create dataframe of county, state, and country land areas for population density calculations later
+  #Create dataframe of county, state, country land areas to add to area objects ------------------------------
   area_name = 'Geographic area'
   land_area_name = 'Area in square miles - Land area'
-  new_land_area_name = 'land_area' #in square miles
+  new_land_area_name = 'land_area' 
   country_area_name = 'Country Name'
-  year_country_land_area = '2016' #year to use for country land area calculation, years > 2016 had more Nan, so using 2016
-  mile_to_km_squared = 0.386102
+  year_country_land_area = '2016' #Survey year used for country areas, years > 2016 had NaN, so using 2016
+  mile_to_km_squared = 0.386102 #Conversion factor for mi2 to km2 because units matter :)
 
+  #County Level Land Area Dataframes----
   county_area_df = pd.read_csv(args.county_area_file, encoding='latin-1')
-  county_area_df[args.country_var_name] = county_area_df[area_name].str.split().str[-2:].str.join(' ')
+  #Extract County Name from area_name variable (which includes country and state, which we do not want here)
+  county_area_df[args.area_var_name] = county_area_df[area_name].str.split().str[-2:].str.join(' ')
+  #Rename Land Area Variable, because the one in the file is verbose
   county_area_df[new_land_area_name] = county_area_df[land_area_name] 
-  county_area_df = county_area_df[[args.country_var_name, new_land_area_name]]
-  county_area_df = county_area_df[county_area_df[args.country_var_name].str.match('County')] #remove entries that aren't counties
+  #Save only Area Name and Land Area to Area Dataframe
+  county_area_df = county_area_df[[args.area_var_name, new_land_area_name]]
+  #Remove Entries that are not counties (e.g. Baja Municipio)
+  county_area_df = county_area_df[county_area_df[args.area_var_name].str.match('County')]
 
+  #State Level Land Area Dataframes----
   state_area_df = pd.read_csv(args.state_area_file, encoding='latin-1')
-  state_area_df[args.country_var_name] = state_area_df[area_name].str.split().str[3]
+  #Extract State Name from area_name variable (exclude country name)
+  state_area_df[args.area_var_name] = state_area_df[area_name].str.split().str[3]
+  #Rename Land Area Variable, because the one in the file is verbose
   state_area_df[new_land_area_name] = state_area_df[land_area_name]
-  state_area_df = state_area_df[[args.country_var_name, new_land_area_name]]
-  state_area_df = state_area_df[~state_area_df[args.country_var_name].str.contains('United States', na=False)]#do not want to have duplicate US entries
+  #Save only Area Name and Land Area to Area Dataframe
+  state_area_df = state_area_df[[args.area_var_name, new_land_area_name]]
+  #Remove Entries that are not states (e.g. counties)
+  state_area_df = state_area_df[~state_area_df[args.area_var_name].str.contains('United States', na=False)]
 
+  #Country Level Land Area Dataframes----
   country_area_df = pd.read_csv(args.country_area_file, encoding='latin-1')
-  country_area_df[args.country_var_name] = country_area_df[country_area_name]
-  country_area_df[new_land_area_name] = country_area_df[year_country_land_area]*mile_to_km_squared #bc countries saved in km2
-  country_area_df = country_area_df[[args.country_var_name, new_land_area_name]]
+  #Rename area name for consistency with other land area dataframes
+  country_area_df[args.area_var_name] = country_area_df[country_area_name]
+  #Convert land area to miles squared as that is what is saved for US States and Counties
+  country_area_df[new_land_area_name] = country_area_df[year_country_land_area]*mile_to_km_squared
+  #Save only Area Name and Land Area to Area Dataframe
+  country_area_df = country_area_df[[args.area_var_name, new_land_area_name]]
 
-  land_area_df = pd.concat([county_area_df, state_area_df, country_area_df]) #add all land area dataframes together
+  #Add all Land Area Dataframes Together
+  land_area_df = pd.concat([county_area_df, state_area_df, country_area_df])
 
-  #Obtain country level dataframe
+
+  #Create Area Dataframes to use for analysis ---------------------------------------------------------------------------
+  #Country level dataframes----
   selected_countries = open(args.selected_countries_file, 'r')
   country_dataframe = pd.read_csv(args.country_data_file, parse_dates = [args.date_name])
   for country in selected_countries:
     if len(country.strip()) > 0:
       country = country.rstrip()
       population = CountryInfo(country).population()
-      this_country_df = country_dataframe.loc[country_dataframe[args.country_var_name] == country]
-      this_country_df['deaths_per_mil'] = args.cv_day_thres*this_country_df[args.name_total_deaths].div(population)
-      area = land_area_df.loc[land_area_df[args.country_var_name] == country, new_land_area_name]
+      #Extract entries for selected country
+      this_country_df = country_dataframe.loc[country_dataframe[args.area_var_name] == country]
+      #Calculate and add deaths_per_mil variable to dataframe
+      this_country_df[args.n_deaths_per_mil] = args.cv_day_thres*this_country_df[args.name_total_deaths].div(population)
+      #Get land area for country
+      area = land_area_df.loc[land_area_df[args.area_var_name] == country, new_land_area_name]
+      #Calculate CV-day dataframe per million people and for entire population
       cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_country_df, population, args)
+      #Create area object for selected country and add to area_obj_list
       area_object = area_corona_class(country, this_country_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled)
-      area_objects_list.append(area_object)
+      area_obj_list.append(area_object)
 
-    if country == 'Chinaz': #Scale China's dataset to test veracity of their dataset relative to other areas
-      this_country_df = full_dataframe[full_dataframe[args.country_var_name].str.match(country)]
-      for var in args.time_series_variables:
-        scale_china = 3000
-        this_country_df[var] = scale_china * this_country_df[var]
-      population = CountryInfo(country).population()
-      this_country_df['deaths_per_mil'] = args.cv_day_thres*this_country_df[args.name_total_deaths].div(population)
-      area = land_area_df.loc[land_area_df[args.country_var_name] == country, new_land_area_name]
-      cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_country_df, population, args)
-      name = country + 'x' + str(scale_china)
-      area_object = area_corona_class(name, this_country_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled)
-      area_objects_list.append(area_object)
-
-  #Obtain state level dataframe
+  #State level dataframes---
+  #Obtain State Population Dataframe to add to State Area Objects later
   state_population_df = pd.read_csv(args.us_state_population_file)
   selected_states = open(args.selected_states_file, "r")
   state_dataframe = pd.read_csv(args.state_data_file, parse_dates = [args.date_name])
-  state_dataframe = state_dataframe.rename(columns = {'state': 'location', 'cases': 'total_cases', 'deaths': 'total_deaths'})
-  #Split state dataframe by state, and compute and append cumulative variables
+  #Rename dataframe columns to match other area dataframes
+  state_dataframe = state_dataframe.rename(columns = {'state': args.area_var_name, 'cases': args.name_total_cases, 'deaths': args.name_total_deaths})
+  #Split state dataframe by state, compute and append cumulative variables
   for state in selected_states :
     if len(state.strip()) > 0:
       state = state.rstrip()
       population = get_population(state, state_population_df, args.state_pop_region_name, args.state_pop_var_name)
-      area = land_area_df.loc[land_area_df[args.country_var_name] == country, new_land_area_name]
-
-      this_state_df = state_dataframe[state_dataframe[args.country_var_name].str.match(state)]
+      #Get land area for selected state
+      area = land_area_df.loc[land_area_df[args.area_var_name] == country, new_land_area_name]
+      #Get dataframe for selected state for US States Dataframe
+      this_state_df = state_dataframe[state_dataframe[args.area_var_name].str.match(state)]
+      #Sort Values by Date in case they are mixed
       this_state_df = this_state_df.sort_values(by=[args.date_name])
-      this_state_df['new_cases'] = this_state_df['total_cases'].diff()
-      this_state_df['new_deaths'] = this_state_df['total_deaths'].diff()
-      this_state_df['deaths_per_mil'] = args.cv_day_thres*this_state_df[args.name_total_deaths].div(population)
-      this_state_df.fillna(0, inplace = True)
+      #Calculate new cases and deaths based on total cases and deaths
+      this_state_df[args.name_new_cases] = this_state_df[args.name_total_cases].diff().fillna(0)
+      this_state_df[args.name_new_deaths] = this_state_df[args.name_total_deaths].diff().fillna(0)
+      #this_state_df.fillna(0, inplace = True)
+      #Calculate and add deaths_per_mil variable to dataframe
+      this_state_df[args.n_deaths_per_mil] = args.cv_day_thres*this_state_df[args.name_total_deaths].div(population)
+      #Calculate CV-day dataframe per million people and for entire population
       cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_state_df, population, args)
+      #Create area object for selected country and add to area_obj_list
       area_object = area_corona_class(state, this_state_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled)
-      area_objects_list.append(area_object)
+      area_obj_list.append(area_object)
 
-  #Obtain US County level dataframe
-  county_population_df = pd.read_csv(args.us_county_pop_file, encoding='latin-1')
-  county_population_df = county_population_df.loc[county_population_df['YEAR'] == args.county_pop_year]#require most up to date year
-  county_population_df = county_population_df.loc[county_population_df['AGEGRP'] == args.county_pop_age_group]#include all age group
+  #US County level dataframes----
+  #Obtain County Population Dataframe to add to County Area Objects later
+  #county_population_df = pd.read_csv(args.us_county_pop_file, encoding='latin-1')
+  #Require population survey year = args.county_pop_year
+  #county_population_df = county_population_df.loc[county_population_df['YEAR'] == args.county_pop_year]
+  #Include all age groups in population (fyi this file does have population by age group)
+  #county_population_df = county_population_df.loc[county_population_df['AGEGRP'] == args.county_pop_age_group]
 
   selected_counties = pd.read_csv(args.selected_counties_file)
+  #Only keep County, State, and TotalPop variables from user specified selected_counties_files
   selected_counties = selected_counties[['County', 'State', 'TotalPop']]
 
   counties_dataframe = pd.read_csv(args.county_data_file, parse_dates = [args.date_name])
-  counties_dataframe = counties_dataframe.rename(columns = {'state': 'location', 'cases': 'total_cases', 'deaths': 'total_deaths'})
-  #Split state dataframe by state, and compute and append cumulative variables
-  counties_obj_list = list()
+  #Rename dataframe columns for consistency with other dataframes
+  counties_dataframe = counties_dataframe.rename(columns = {'state': args.area_var_name, 'cases': args.name_total_cases, 'deaths': args.name_total_deaths})
+
+  #Split county dataframe by state, and compute and append cumulative variables
   for ind in selected_counties.index:
     county = selected_counties['County'][ind]
     state = selected_counties['State'][ind]
     if len(county.strip()) > 0:
-      #county = county.rstrip()
       population = selected_counties['TotalPop'][ind]
-      area = land_area_df.loc[land_area_df[args.country_var_name] == country, new_land_area_name]
+      #Get land area for selected state
+      area = land_area_df.loc[land_area_df[args.area_var_name] == country, new_land_area_name]
+      #Get dataframe for selected county for US Counties Dataframe
       this_county_df = counties_dataframe.loc[counties_dataframe[args.county_var_name] == county]
-      this_county_df = this_county_df.loc[this_county_df['location'] == state]
-      this_county_df['deaths_per_mil'] = args.cv_day_thres*this_county_df[args.name_total_deaths].div(population)
+      #Require that county state matches expectation (turns out there are counties with the same name in different states)
+      this_county_df = this_county_df.loc[this_county_df[args.area_var_name] == state]
+      #Calculate Deaths per million people and add to dataframe
+      this_county_df[args.n_deaths_per_mil] = args.cv_day_thres*this_county_df[args.name_total_deaths].div(population)
 
       if this_county_df.empty != True:
+        #Sort entries by date
+        this_county_df = this_county_df.sort_values(by=[args.date_name])
+        this_county_df = this_county_df.dropna()
+        #Calculate and add new cases and deaths to dataframe
+        this_county_df[args.name_new_cases] = this_county_df[args.name_total_cases].diff().fillna(0)
+        this_county_df[args.name_new_deaths] = this_county_df[args.name_total_deaths].diff().fillna(0)
+        #this_county_df.fillna(0, inplace = True)
+        #Calculate CV-day dataframe per million people and for entire population
+        cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_county_df, population, args)
         if county != 'New York City':
-          this_county_df = this_county_df.sort_values(by=[args.date_name])
-          this_county_df = this_county_df.dropna()
-          this_county_df['new_cases'] = this_county_df['total_cases'].diff()
-          this_county_df['new_deaths'] = this_county_df['total_deaths'].diff()
-          this_county_df.fillna(0, inplace = True)
-          cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_county_df, population, args)
-          area_object = area_corona_class(county, this_county_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled, this_county_df.iloc[0]['fips'])
-          area_objects_list.append(area_object)
-          counties_obj_list.append(area_object)
+          #Create area object for selected country
+          fip = this_county_df.iloc[0]['fips']
+          area_object = area_corona_class(county, this_county_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled, fip)
         else:
-          nyc_fips = [36005, 36047, 36061, 36081, 36085] #nyt dataset combines nyc counties, expand them here for map plot
-          for this_nyc_fip in nyc_fips:
+          #NYT dataset combines 5 NYC counties into one
+          #Expand them here with individual fips codes into individual area objects for map plots
+          nyc_fips = [36005, 36047, 36061, 36081, 36085] 
+          for this_nyc_fip in args.nyc_fips:
+            #Set fips code for indiv NYC country
             this_county_df['fips'].fillna(this_nyc_fip, inplace=True)
-            this_county_df = this_county_df.sort_values(by=[args.date_name])
-            this_county_df = this_county_df.dropna()
-            this_county_df['new_cases'] = this_county_df['total_cases'].diff()
-            this_county_df['new_deaths'] = this_county_df['total_deaths'].diff()
-            this_county_df.fillna(0, inplace = True)
-            cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_county_df, population, args)
+            #Create area object for this NYC county
             area_object = area_corona_class(county, this_county_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled, this_nyc_fip)
-            area_objects_list.append(area_object)
-            counties_obj_list.append(area_object)
+        #Add area object to area/counties_obj_list
+        area_obj_list.append(area_object)
+        counties_obj_list.append(area_object)
 
         if county == 'New York City' or county == 'Los Angeles' or county == 'Santa Clara' or county == 'King':
           print(county)
           print(cv_days_df_per_mil)
 
-  #Process Hubei Data
+  #Create Hubei Dataframe
   hubei_pop = 11000000
   hubei_area = 71776 #in square miles
   hubei_df = pd.read_csv(args.hubei_data_file, parse_dates = ['ObservationDate'])
+  #Select entires from hubei_df from Hubei
   hubei_df = hubei_df.loc[hubei_df['Province/State'] == 'Hubei']
-  hubei_df = hubei_df.rename(columns = {'ObservationDate': 'date', 'Province/State': 'location', 'Confirmed': 'total_cases', 'Deaths': 'total_deaths'})
+  #Rename dataframe columns for consistency with other dataframes
+  hubei_df = hubei_df.rename(columns = {'ObservationDate': args.date_name, 'Province/State': args.area_var_name, 'Confirmed': args.name_total_cases, 'Deaths': args.name_total_deaths})
+  #Calculate new cases and deaths and add to dataframe
   hubei_df[args.name_new_cases] = hubei_df[args.name_total_cases].diff().fillna(0)
   hubei_df[args.name_new_deaths] = hubei_df[args.name_total_deaths].diff().fillna(0)
-  hubei_df['deaths_per_mil'] = args.cv_day_thres*hubei_df[args.name_total_deaths].div(hubei_pop)
+  #Calculate Deaths per million people and add to dataframe
+  hubei_df[args.n_deaths_per_mil] = args.cv_day_thres*hubei_df[args.name_total_deaths].div(hubei_pop)
+  #Calculate CV-day dataframe per million people and for entire population
   cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(hubei_df, hubei_pop, args)
+  #Create Hubei area object and add to area_obj_list
   area_object = area_corona_class('Hubei', hubei_df, hubei_pop, hubei_area, args, cv_days_df_per_mil, cv_days_df_not_scaled)
-  area_objects_list.append(area_object)
+  area_obj_list.append(area_object)
 
   #Plot Time Series of variables
   if(args.plot_time_series == 1):
-    #plot(area_objects_list, args, 'unmodified', 0)
-    #plot(area_objects_list, args, 'per_mil', 0)
-    #plot(area_objects_list, args, 'unmodified_covid_days', 0)
-    #plot(area_objects_list, args, 'per_mil_covid_days', 1)
-    plot(area_objects_list, args, 'bar_unmodified_covid_days',0)
+    plot(area_obj_list, args, 'unmodified', ['total_deaths'])
+    #plot(area_obj_list, args, 'per_mil', 'deaths_per_mil')
+    #plot(area_obj_list, args, 'unmodified_covid_days', 'total_deaths')
+    #plot(area_obj_list, args, 'per_mil_covid_days', 'deaths_per_mil')
+    #plot(area_obj_list, args, 'bar_unmodified_covid_days',0)
 
 
 #Make GIFs of time series variables for US counties
-ndays = 1
+ndays = 28
 #make_gif(counties_obj_list, 'df', 'total_deaths', '2020-01-21', '2020-04-01', args)
 #make_gif(counties_obj_list, 'df', 'deaths_per_mil', '2020-01-21', '2020-04-01', args)
 #make_gif_cv_days(counties_obj_list, 'cv_days_df_not_scaled', 'total_deaths', ndays, args)
@@ -221,9 +258,9 @@ ndays = 1
 
 #Logistic Fit
 #for county in county_obj_list:
-#fit_logistic_all(area_objects_list)
+#fit_logistic_all(area_obj_list)
 '''
-for county in area_objects_list:
+for county in area_obj_list:
   print('--------------------------')
   print('COUNTY: {}'.format(county.name))
   this_df = county.cv_days_df_not_scaled

@@ -181,7 +181,7 @@ def make_gif(area_obj_list, dataframe_name, var, start_date, end_date, args):
     #plt.tight_layout()
     plt.savefig(filename, bbox_inches='tight')
     plt.close('all')
-  make_gif_command = 'convert -delay 100 '
+  make_gif_command = 'convert -delay 50 '
   for ifile in filenames:
     make_gif_command += ifile + ' '
   make_gif_command += args.output_dir + '/' + var + '.gif'
@@ -252,13 +252,12 @@ def make_gif_cv_days(area_obj_list, dataframe_name, var, ndays, args):
 
     filename = args.output_dir + '/counties_' + var + '_' + str(i) + '.jpg'
     filenames.append(filename)
-    #plt.tight_layout()
     plt.savefig(filename, bbox_inches='tight')
     plt.close('all')
-  make_gif_command = 'convert -delay 100 '
+  make_gif_command = 'convert -delay 50 '
   for ifile in filenames:
     make_gif_command += ifile + ' '
-  make_gif_command += args.output_dir + '/' + var + '.gif'
+  make_gif_command += args.output_dir + '/' + var + '_cv_days.gif'
   os.system(make_gif_command)
 
 
@@ -317,37 +316,38 @@ def get_lives_saved_bar_chart(x_predict, y_predict, y_best, name, args, savename
   plt.savefig(args.output_dir + '/' + name + 'livessaved' + savename + '.png')
   plt.close('all')
 
-def plot(area_objects_list, args, plot_type, animate):
+def plot(area_objects_list, args, plot_type, variables):
   #Make Plot Line Colors Pretty 
   col = plt.cm.jet(np.linspace(0,1,round(len(area_objects_list)/2)+5))
   if plot_type == 'unmodified_covid_days' or plot_type == 'per_mil_covid_days':
     line_cycler = cycler('color', col,) * cycler('linestyle', ['-', ':'])
-  if plot_type == 'bar_unmodified_covid_days':
+  if plot_type == 'lives_saved_unmodified_covid_days':
     line_cycler = cycler('color', col,) * cycler('linestyle', ['-', ':', '--'])
   else:
     line_cycler = cycler('color', col,)
   plt.rc('axes', prop_cycle = line_cycler)
+
   #Plot time series for time_series_variables
-  for var in args.time_series_variables:
+  for var in variables:
+    print('variable: {}'.format(var))
     for i in range(len(area_objects_list)):
       area = area_objects_list[i]
+      print(area)
       nyc_fips_to_skip = [36047, 36061, 36081, 36085]
-      if area.fips in nyc_fips_to_skip: #do not plot NYC counties individually since NYT dataset combined them
+      if area.fips in args.nyc_fips_to_skip: #do not plot NYC counties individually since NYT dataset combined them
         continue
       area_df = area.df
-      if plot_type == 'unmodified':
+      if plot_type == 'unmodified': #Plot raw data vs date
         plt.plot(area_df[args.date_name], area_df[var], label = area.name, linewidth = args.linewidth)
         plt.xlabel(args.n_date_name)
         plt.ylabel(get_nice_var_name(var))
-      elif plot_type == 'per_mil':
-        plt.plot(area_df[args.date_name], (area_df[var].div(area.population)*args.cv_day_thres), label = area.name, linewidth = args.linewidth)
+      elif plot_type == 'per_mil': #Plot raw data per 1M people (unless specified different in args) vs Date
+        plt.plot(area_df[args.date_name], (area_df[var]), label = area.name, linewidth = args.linewidth)
         plt.xlabel(args.n_date_name)
         plt.ylabel(get_nice_var_name(var) + ' per ' + get_nice_var_name(args.cv_day_thres))
-      elif plot_type == 'bar_unmodified_covid_days':
+      elif plot_type == 'lives_saved_unmodified_covid_days':
         area_df = area.cv_days_df_not_scaled
         x_max = len(area_df) + args.days_of_cv_predict
-        print(area.name)
-        print('xmax: {}'.format(x_max))
         x = np.linspace(0,x_max, x_max)
         plt.xlim(0,30)
         plt.ylim(1,10000)
@@ -357,10 +357,6 @@ def plot(area_objects_list, args, plot_type, animate):
           intercept = model[0]
           prediction = 10**(model(x))
           x_predict, y_predict, y_best = get_shifted_prediction(area_df, var, model[1], model[0], args.min_growth_rate, area.input_args)
-          print('prediction')
-          print(y_predict)
-          print('best')
-          print(y_best)
           #get_lives_saved_bar_chart(x_predict, y_predict, y_best, area.name, area.input_args, 'All')
           #individual impact
           current_indiv_slope = (model[1]/area.population)
@@ -387,12 +383,12 @@ def plot(area_objects_list, args, plot_type, animate):
           intercept = model[0]
           prediction = 10**(model(x))
           x_predict, y_predict, y_best = get_shifted_prediction(area_df, var, model[1], model[0], args.min_growth_rate, area.input_args)
-          get_lives_saved_bar_chart(x_predict, y_predict, y_best, area.name, area.input_args, 'All')
+          #get_lives_saved_bar_chart(x_predict, y_predict, y_best, area.name, area.input_args, 'All')
           #individual impact
           current_indiv_slope = (model[1]/area.population)
           improved_slope = model[1] - (current_indiv_slope - args.min_indiv_growth_rate)
           x_predict, y_predict_indiv, y_best_indiv = get_shifted_prediction(area_df, var, model[1], model[0], improved_slope, area.input_args)
-          get_lives_saved_bar_chart(x_predict, y_predict_indiv, y_best_indiv, area.name, area.input_args, 'Individual')
+          #get_lives_saved_bar_chart(x_predict, y_predict_indiv, y_best_indiv, area.name, area.input_args, 'Individual')
           plt.plot(area_df.index.values, area_df[var], label = area.name + ':' + str(slope), linewidth = args.linewidth)
           plt.plot(x_predict,y_predict)
         plt.xlabel('Days since ' + str(args.cv_day_thres_notscaled) + ' Deaths')
@@ -417,8 +413,6 @@ def plot(area_objects_list, args, plot_type, animate):
           plt.plot(x_predict, (y_predict/area.population)*args.cv_day_thres)
         plt.xlabel('Days since 1death/' + get_nice_var_name(args.cv_day_thres) + ' people')
         plt.ylabel(get_nice_var_name(var) + ' per ' + get_nice_var_name(args.cv_day_thres))
-
-          
 
     #Plot Nominal Growth Rates on COVID Days Plots
     if plot_type == 'unmodified_covid_days':
