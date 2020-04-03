@@ -38,6 +38,8 @@ import geopandas
 #from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.animation import FuncAnimation
 from datetime import datetime, timedelta, date #for time dependent gif plots
+from scipy.optimize import curve_fit #to fit sigmoids of infection/death rates
+from scipy.optimize import fsolve #to solve logistic curve for infection end date
 
 
 
