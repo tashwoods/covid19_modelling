@@ -261,7 +261,7 @@ def make_gif_cv_days(area_obj_list, dataframe_name, var, ndays, args):
   os.system(make_gif_command)
 
 
-def get_nice_var_name(var):
+def get_nice_var_name(var, args=0):
   if var == 'total_deaths':
     return 'Total Deaths'
   if var == 'total_cases':
@@ -273,15 +273,21 @@ def get_nice_var_name(var):
   if var == 1000000:
     return '1M'
   if var == 'deaths_per_mil':
-    return 'Deaths (per 1,000,000)'
+    group_size = '{:,}'.format(args.cv_day_thres)
+    return 'Total Deaths per ' + group_size
 
 def get_shifted_prediction(area_df, var, slope, intercept, best_growth_rate, args):
+  #Obtain last x,y value from data
   last_x = len(area_df.index.values) - 1
   last_y = np.log10(area_df[var].iloc[-1])
+  #Calculate shifted intercept for fit to data, to make last point be in linear prediction 
   shifted_intercept = last_y - (slope * last_x)
+  #Calculate shifted intercept for best_growth_rate to make last point be in linear prediction
   best_shifted_intercept = last_y - (best_growth_rate * last_x)
+  #Return arrays for x, y_fitted_shifted, y_best_shifted
   last_predict_day = last_x + args.days_of_cv_predict
   x = np.linspace(last_x,last_predict_day, last_predict_day - last_x + 1)
+  #Since inputs for y were log(y), convert back to y
   y = 10**((slope * x) + shifted_intercept)
   y_best = 10**((best_growth_rate *x) + best_shifted_intercept)
   return x, y, y_best
@@ -316,119 +322,124 @@ def get_lives_saved_bar_chart(x_predict, y_predict, y_best, name, args, savename
   plt.savefig(args.output_dir + '/' + name + 'livessaved' + savename + '.png')
   plt.close('all')
 
-def plot(area_objects_list, args, plot_type, variables):
-  #Make Plot Line Colors Pretty 
+def plot(area_objects_list, args, plot_type, variables, scale_array):
+  #Create Color Maps for plots based on plot_type
   col = plt.cm.jet(np.linspace(0,1,round(len(area_objects_list)/2)+5))
-  if plot_type == 'unmodified_covid_days' or plot_type == 'per_mil_covid_days':
+  if plot_type == 'raw_covid_days' or plot_type == 'per_mil_covid_days':
     line_cycler = cycler('color', col,) * cycler('linestyle', ['-', ':'])
-  if plot_type == 'lives_saved_unmodified_covid_days':
+  elif plot_type == 'lives_saved_unmodified_covid_days':
     line_cycler = cycler('color', col,) * cycler('linestyle', ['-', ':', '--'])
   else:
     line_cycler = cycler('color', col,)
   plt.rc('axes', prop_cycle = line_cycler)
 
-  #Plot time series for time_series_variables
+  #Plot time series for variables
   for var in variables:
-    print('variable: {}'.format(var))
-    for i in range(len(area_objects_list)):
-      area = area_objects_list[i]
-      print(area)
-      nyc_fips_to_skip = [36047, 36061, 36081, 36085]
-      if area.fips in args.nyc_fips_to_skip: #do not plot NYC counties individually since NYT dataset combined them
-        continue
-      area_df = area.df
-      if plot_type == 'unmodified': #Plot raw data vs date
-        plt.plot(area_df[args.date_name], area_df[var], label = area.name, linewidth = args.linewidth)
-        plt.xlabel(args.n_date_name)
-        plt.ylabel(get_nice_var_name(var))
-      elif plot_type == 'per_mil': #Plot raw data per 1M people (unless specified different in args) vs Date
-        plt.plot(area_df[args.date_name], (area_df[var]), label = area.name, linewidth = args.linewidth)
-        plt.xlabel(args.n_date_name)
-        plt.ylabel(get_nice_var_name(var) + ' per ' + get_nice_var_name(args.cv_day_thres))
-      elif plot_type == 'lives_saved_unmodified_covid_days':
-        area_df = area.cv_days_df_not_scaled
-        x_max = len(area_df) + args.days_of_cv_predict
-        x = np.linspace(0,x_max, x_max)
-        plt.xlim(0,30)
-        plt.ylim(1,10000)
-        if len(area_df.index) != 0:
-          model = np.poly1d(np.polyfit(area_df.index.values, np.log10(area_df[var]),1))
-          slope = round(10**model[1],2) #this is written for log scale, should make it more general
-          intercept = model[0]
-          prediction = 10**(model(x))
-          x_predict, y_predict, y_best = get_shifted_prediction(area_df, var, model[1], model[0], args.min_growth_rate, area.input_args)
-          #get_lives_saved_bar_chart(x_predict, y_predict, y_best, area.name, area.input_args, 'All')
-          #individual impact
-          current_indiv_slope = (model[1]/area.population)
-          improved_slope = model[1] - (current_indiv_slope - args.min_indiv_growth_rate)
-          x_predict, y_predict_indiv, y_best_indiv = get_shifted_prediction(area_df, var, model[1], model[0], improved_slope, area.input_args)
-          #get_lives_saved_bar_chart(x_predict, y_predict_indiv, y_best_indiv, area.name, area.input_args, 'Individual')
-          plt.plot(area_df.index.values, area_df[var], label = area.name + ':' + str(slope), linewidth = args.linewidth)
-          plt.plot(x_predict,y_predict)
-          plt.plot(x_predict, y_best)
-        plt.xlabel('Days since ' + str(args.cv_day_thres_notscaled) + ' Deaths')
-        plt.ylabel(get_nice_var_name(var))
+    #Iterate thru specified y-scales
+    for scale in scale_array:
+      #Iterate thru objects in area_objects_list (e.g. countries, states, counties)
+      for i in range(len(area_objects_list)):
+        area = area_objects_list[i]
 
-      elif plot_type == 'unmodified_covid_days':
-        x_max = len(area_df.index.values) + args.days_of_cv_predict
-        print('xmax: {}'.format(x_max))
-        x = np.linspace(0,x_max, x_max)
-        plt.xlim(0,30)
-        plt.ylim(1,10000)
-        start_date = get_first_cv_day(area, 'notscaled')
-        if start_date != -1: #if there has been at least one CV day plot that area
-          area_df = area_df[start_date:].reset_index()
+        #Don't plot NYC counties individually -- they're indentical due to NYT dataset structure
+        if area.fips in args.nyc_fips_to_skip: 
+          continue
+        #Plot Raw data vs Date
+        if plot_type == 'raw_dates': 
+          area_df = area.df
+          plt.plot(area_df[args.date_name], area_df[var], label = area.name, linewidth = args.linewidth)
+          plt.xlabel(args.n_date_name)
+          plt.ylabel(get_nice_var_name(var, args))
+
+        elif plot_type == 'raw_covid_days':
+          area_df = area.cv_days_df_not_scaled
+          #Calculate max number of days to plot based on days_of_cv_predict
+          x_max = len(area_df.index.values) + args.days_of_cv_predict
+          x = np.linspace(0,x_max, x_max)
+          plt.xlim(0,x_max)
+          #Fit log(var) and time to line
           model = np.poly1d(np.polyfit(area_df.index.values, np.log10(area_df[var]),1))
-          slope = round(10**model[1],2) #this is written for log scale, should make it more general
           intercept = model[0]
+          log_slope = model[1]
+          #Calculate slope in linear (not log) scale
+          slope = round(10**log_slope,2)
+          #Calculate fitted prediction
           prediction = 10**(model(x))
-          x_predict, y_predict, y_best = get_shifted_prediction(area_df, var, model[1], model[0], args.min_growth_rate, area.input_args)
-          #get_lives_saved_bar_chart(x_predict, y_predict, y_best, area.name, area.input_args, 'All')
-          #individual impact
-          current_indiv_slope = (model[1]/area.population)
-          improved_slope = model[1] - (current_indiv_slope - args.min_indiv_growth_rate)
-          x_predict, y_predict_indiv, y_best_indiv = get_shifted_prediction(area_df, var, model[1], model[0], improved_slope, area.input_args)
-          #get_lives_saved_bar_chart(x_predict, y_predict_indiv, y_best_indiv, area.name, area.input_args, 'Individual')
+          #Calculate fitted prediction with constraint that last point matches the last dataset value
+          x_predict, y_predict, y_best = get_shifted_prediction(area_df, var, log_slope, intercept, args.min_growth_rate, area.input_args)
+          #Plot Data and Prediction
           plt.plot(area_df.index.values, area_df[var], label = area.name + ':' + str(slope), linewidth = args.linewidth)
           plt.plot(x_predict,y_predict)
-        plt.xlabel('Days since ' + str(args.cv_day_thres_notscaled) + ' Deaths')
-        plt.ylabel(get_nice_var_name(var))
-      elif plot_type == 'per_mil_covid_days':
-        start_date = get_first_cv_day(area, 'scaled')
-        x_max = len(area_df.index.values) + args.days_of_cv_predict
-        x = np.linspace(0,x_max, x_max)
-        plt.xlim(0,30)
-        plt.ylim(1,5000)
-        if start_date != -1:
-          cv_days_df = pd.DataFrame(list(zip(area_df.index.values, area_df[var].div(area.population)*args.cv_day_thres)), columns = ['cv_days', 'deaths_per_mil'])
-          area_df = area_df[start_date:].reset_index()
+          plt.xlabel('Days since ' + str(args.cv_day_thres_notscaled) + ' Deaths')
+          plt.ylabel(get_nice_var_name(var))
+
+        elif plot_type == 'per_mil_covid_days':
+          area_df = area.cv_days_df_per_mil
+          #Get max number of cv outbreak days to determine plot limits
+          x_max = len(area_df.index.values) + args.days_of_cv_predict
+          x = np.linspace(0,x_max, x_max)
+          #Skip areas that have less than two entries as it will not yield a good fit
           if(len(area_df.index.values) < 2):
             continue
-          model = np.poly1d(np.polyfit(area_df.index.values, np.log10(area_df[var].div(area.population)*args.cv_day_thres),1))
-          slope = round(10**model[1],2)
+          #Fit log(var)
+          model = np.poly1d(np.polyfit(area_df.index.values, np.log10(area_df[var]),1))
           intercept = model[0]
-          x_predict, y_predict, y_best = get_shifted_prediction(area_df, var, model[1], model[0], args.min_growth_rate, area.input_args)
-          plt.plot(area_df.index.values, area_df[var].div(area.population)*args.cv_day_thres, label = area.name + ':' + str(slope), linewidth = args.linewidth)
-          #if area.name != 'China' and area.name != 'Hubei':
-          plt.plot(x_predict, (y_predict/area.population)*args.cv_day_thres)
-        plt.xlabel('Days since 1death/' + get_nice_var_name(args.cv_day_thres) + ' people')
-        plt.ylabel(get_nice_var_name(var) + ' per ' + get_nice_var_name(args.cv_day_thres))
+          log_slope = model[1]
+          #Slope in linear not log(slope)
+          slope = round(10**model[1],2)
 
-    #Plot Nominal Growth Rates on COVID Days Plots
-    if plot_type == 'unmodified_covid_days':
-      for i in args.growth_rates:
-        y = args.cv_day_thres_notscaled*(i)**x
-        plt.plot(x, y, '--r', label = str(i) + 'x Daily Growth')
-    if plot_type == 'per_mil_covid_days':
-      for i in args.growth_rates:
-        y = ((i)**x)
-        plt.plot(x, y, '--r', label = str(i) + 'x Daily Growth')
+          #Calculate fitted prediction with constraint that last point matches the last dataset value
+          x_predict, y_predict, y_best = get_shifted_prediction(area_df, var, log_slope, intercept, args.min_growth_rate, area.input_args)
+          #Plot Data and Prediction
+          plt.plot(area_df.index.values, area_df[var], label = area.name + ':' + str(slope), linewidth = args.linewidth)
+          plt.plot(x_predict, y_predict)
+          plt.xlabel('Days since 1 ' + get_nice_var_name(var, args))
+          plt.ylabel(get_nice_var_name(var, args))
 
-    plt.yscale(args.plot_y_scale)
-    plt.legend(prop = {'size': 6})
-    plt.xticks(fontsize = args.tick_font_size)
-    plt.savefig(args.output_dir + '/' + var + '_' + plot_type + '.png')
-    plt.close('all')
+      #Plot Nominal Growth Rates on COVID Days Plots
+      #Set ymax based on data not growth rate (bc that makes the data too zoomed out)
+      _, ymax = plt.gca().get_ylim()
+      if plot_type == 'raw_covid_days':
+        plt.ylim(args.cv_day_thres_notscaled,ymax)
+        for i in args.growth_rates:
+          y = args.cv_day_thres_notscaled*(i)**x
+          plt.plot(x, y, '--r', label = str(i) + 'x Daily Growth')
+      elif plot_type == 'per_mil_covid_days':
+        plt.ylim(1, ymax)
+        for i in args.growth_rates:
+          y = ((i)**x)
+          plt.plot(x, y, '--r', label = str(i) + 'x Daily Growth')
+
+      plt.yscale(scale)
+      plt.legend(prop = {'size': 6})
+      plt.xticks(fontsize = args.tick_font_size)
+      plt.savefig(args.output_dir + '/' + var + '_' + plot_type + '_' + scale + '.png')
+      plt.close('all')
+
+    if plot_type == 'lives_saved_unmodified_covid_days':
+      area_df = area.cv_days_df_not_scaled
+      x_max = len(area_df) + args.days_of_cv_predict
+      x = np.linspace(0,x_max, x_max)
+      plt.xlim(0,30)
+      plt.ylim(1,10000)
+      if len(area_df.index) != 0:
+        model = np.poly1d(np.polyfit(area_df.index.values, np.log10(area_df[var]),1))
+        slope = round(10**model[1],2) #this is written for log scale, should make it more general
+        intercept = model[0]
+        prediction = 10**(model(x))
+        x_predict, y_predict, y_best = get_shifted_prediction(area_df, var, model[1], model[0], args.min_growth_rate, area.input_args)
+        #get_lives_saved_bar_chart(x_predict, y_predict, y_best, area.name, area.input_args, 'All')
+        #individual impact
+        current_indiv_slope = (model[1]/area.population)
+        improved_slope = model[1] - (current_indiv_slope - args.min_indiv_growth_rate)
+        x_predict, y_predict_indiv, y_best_indiv = get_shifted_prediction(area_df, var, model[1], model[0], improved_slope, area.input_args)
+        #get_lives_saved_bar_chart(x_predict, y_predict_indiv, y_best_indiv, area.name, area.input_args, 'Individual')
+        plt.plot(area_df.index.values, area_df[var], label = area.name + ':' + str(slope), linewidth = args.linewidth)
+        plt.plot(x_predict,y_predict)
+        plt.plot(x_predict, y_best)
+      plt.xlabel('Days since ' + str(args.cv_day_thres_notscaled) + ' Deaths')
+      plt.ylabel(get_nice_var_name(var))
+
 def simple_get_first_cv_day(country, population, args):
   cv_thres_per_mil = population*(1/args.cv_day_thres) #will give first day that one in cv_day_thres people in country affected via predict var
   cv_thres_not_scaled = args.cv_day_thres_notscaled

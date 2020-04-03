@@ -22,7 +22,9 @@ if __name__ == '__main__':
   parser.add_argument('-name_total_deaths', '--name_total_deaths', type = str, dest = 'name_total_deaths', default = 'total_deaths', help = 'name of total deaths variable in country level file')
   parser.add_argument('-name_new_cases', '--name_new_cases', type = str, dest = 'name_new_cases', default = 'new_cases', help = 'name of variable in country level file for new cases per day')
   parser.add_argument('-name_new_deaths', '--name_new_deaths', type = str, dest = 'name_new_deaths', default = 'new_deaths', help = 'name of variable in country level file for new deaths per day')
+  parser.add_argument('-name_cv_days', '--name_cv_days', type = str, dest = 'name_cv_days', default = 'cv_days', help = 'name of cv outbreak days')
   parser.add_argument('-predict_var', '--predict_var', type = str, dest = 'predict_var', default = 'total_deaths', help = 'number of variable used to determine where to start counting cv days, should be whichever variable in your dataset you believe is the most accurate')
+  parser.add_argument('-name_fips', '--name_fips', type = str, dest = 'name_fips', default = 'fips', help = 'name of fips variable in input data')
   #Population Info
   parser.add_argument('-us_state_population_file', '--us_state_population_file', type = str, dest = 'us_state_population_file', default = '../data/population_data/nst-est2019-alldata.csv', help = 'file with us population data')
   parser.add_argument('-us_county_pop_file', '--us_county_pop_file', type = str, dest = 'us_county_pop_file', default = '../data/population_data/cc-est2018-alldata.csv', help = 'file with US county population info')
@@ -202,15 +204,14 @@ if __name__ == '__main__':
         cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_county_df, population, args)
         if county != 'New York City':
           #Create area object for selected country
-          fip = this_county_df.iloc[0]['fips']
+          fip = this_county_df.iloc[0][args.name_fips]
           area_object = area_corona_class(county, this_county_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled, fip)
         else:
           #NYT dataset combines 5 NYC counties into one
           #Expand them here with individual fips codes into individual area objects for map plots
-          nyc_fips = [36005, 36047, 36061, 36081, 36085] 
           for this_nyc_fip in args.nyc_fips:
             #Set fips code for indiv NYC country
-            this_county_df['fips'].fillna(this_nyc_fip, inplace=True)
+            this_county_df[args.name_fips].fillna(this_nyc_fip, inplace=True)
             #Create area object for this NYC county
             area_object = area_corona_class(county, this_county_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled, this_nyc_fip)
         #Add area object to area/counties_obj_list
@@ -242,10 +243,9 @@ if __name__ == '__main__':
 
   #Plot Time Series of variables
   if(args.plot_time_series == 1):
-    plot(area_obj_list, args, 'unmodified', ['total_deaths'])
-    #plot(area_obj_list, args, 'per_mil', 'deaths_per_mil')
-    #plot(area_obj_list, args, 'unmodified_covid_days', 'total_deaths')
-    #plot(area_obj_list, args, 'per_mil_covid_days', 'deaths_per_mil')
+    plot(area_obj_list, args, 'raw_dates', ['total_deaths', 'deaths_per_mil'], ['log','linear'])
+    plot(area_obj_list, args, 'raw_covid_days', ['total_deaths'], ['log', 'linear'])
+    plot(area_obj_list, args, 'per_mil_covid_days', ['deaths_per_mil'], ['log', 'linear'])
     #plot(area_obj_list, args, 'bar_unmodified_covid_days',0)
 
 

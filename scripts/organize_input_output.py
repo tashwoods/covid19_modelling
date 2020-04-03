@@ -25,10 +25,10 @@ def get_cv_days_df(area_df, population, args):
   cv_days_df_not_scaled = pd.DataFrame()
   if start_date_per_mil != -1:
     cv_days_df_per_mil = area_df_per_mil
-    cv_days_df_per_mil['cv_days'] = area_df_per_mil.index.values
+    cv_days_df_per_mil[args.name_cv_days] = area_df_per_mil.index.values
   if start_date_not_scaled != -1:
     cv_days_df_not_scaled = area_df_not_scaled
-    cv_days_df_not_scaled['cv_days'] = area_df_not_scaled.index.values
+    cv_days_df_not_scaled[args.name_cv_days] = area_df_not_scaled.index.values
 
   return cv_days_df_per_mil, cv_days_df_not_scaled
 
