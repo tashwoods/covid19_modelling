@@ -306,7 +306,7 @@ def get_lives_saved_bar_chart(x_predict, y_predict, y_best, name, args, savename
   plt.bar(x_predict, lives_saved)
   plt.xlabel('Days From Now')
   plt.ylabel('Total Lives Saved')
-  total_saved = round(lives_saved[-1],1)
+  total_saved = round(lives_saved[-1],3)
   if savename == 'Individual':
     plt.title(name + ': Total Lives One Person Could Save')
   else:
@@ -322,6 +322,8 @@ def plot(area_objects_list, args, plot_type, animate):
   col = plt.cm.jet(np.linspace(0,1,round(len(area_objects_list)/2)+5))
   if plot_type == 'unmodified_covid_days' or plot_type == 'per_mil_covid_days':
     line_cycler = cycler('color', col,) * cycler('linestyle', ['-', ':'])
+  if plot_type == 'bar_unmodified_covid_days':
+    line_cycler = cycler('color', col,) * cycler('linestyle', ['-', ':', '--'])
   else:
     line_cycler = cycler('color', col,)
   plt.rc('axes', prop_cycle = line_cycler)
@@ -359,7 +361,7 @@ def plot(area_objects_list, args, plot_type, animate):
           print(y_predict)
           print('best')
           print(y_best)
-          get_lives_saved_bar_chart(x_predict, y_predict, y_best, area.name, area.input_args, 'All')
+          #get_lives_saved_bar_chart(x_predict, y_predict, y_best, area.name, area.input_args, 'All')
           #individual impact
           current_indiv_slope = (model[1]/area.population)
           improved_slope = model[1] - (current_indiv_slope - args.min_indiv_growth_rate)
@@ -367,10 +369,9 @@ def plot(area_objects_list, args, plot_type, animate):
           #get_lives_saved_bar_chart(x_predict, y_predict_indiv, y_best_indiv, area.name, area.input_args, 'Individual')
           plt.plot(area_df.index.values, area_df[var], label = area.name + ':' + str(slope), linewidth = args.linewidth)
           plt.plot(x_predict,y_predict)
-          plt.plot(x_predict, y_best, label = area.name + ' best')
+          plt.plot(x_predict, y_best)
         plt.xlabel('Days since ' + str(args.cv_day_thres_notscaled) + ' Deaths')
         plt.ylabel(get_nice_var_name(var))
-
 
       elif plot_type == 'unmodified_covid_days':
         x_max = len(area_df.index.values) + args.days_of_cv_predict
