@@ -10,7 +10,7 @@ if __name__ == '__main__':
   #Files User Selected
   parser.add_argument('-selected_countries_file', '--selected_countries_file', type = str, dest = 'selected_countries_file', default = 'selected_areas/countries.txt', help = 'Name of text file with names of countries to process')
   parser.add_argument('-selected_states_file', '--selected_states_file', type = str, dest = 'selected_states_file', default = 'selected_areas/states.txt', help = 'Name of text file with name of US states to process')
-  parser.add_argument('-selected_counties', '--selected_counties_file', type = str, dest = 'selected_counties_file', default = 'selected_areas/mycounties.txt', help = 'text file with US counties to use')
+  parser.add_argument('-selected_counties', '--selected_counties_file', type = str, dest = 'selected_counties_file', default = 'selected_areas/all_counties.txt', help = 'text file with US counties to use')
   #parser.add_argument('-selected_counties', '--selected_counties_file', type = str, dest = 'selected_counties_file', default = 'selected_areas/no_hawaii_alaska_us_counties.txt', help = 'text file with US counties to use')
   #Variables to Plot
   parser.add_argument('-time_series_variables', '--time_series_variables', type = list, dest = 'time_series_variables', default = ['total_deaths'], help = 'list of variables to plot in time series')
@@ -58,6 +58,8 @@ if __name__ == '__main__':
   parser.add_argument('-days_of_cv_predict', '--days_of_cv_predict', type = int, dest = 'days_of_cv_predict', default = 15, help = 'number of days past last date in dataset to predict cv trends')
   parser.add_argument('-min_growth_rate', '--min_growth_rate', type = float, dest = 'min_growth_rate', default = 0.03927, help = 'min growth rate to compare to') #0.0357 absolute best
   parser.add_argument('-min_indiv_growth_rate', '--min_indiv_growth_rate', type = float, dest = 'min_indiv_growth_rate', default = 7.6595717E-10, help = 'minimum individual contribution to growth rate')
+  parser.add_argument('-gif_delay', '--gif_delay', type = str, dest = 'gif_delay', default = '50', help = 'delay between jpg for gif')
+  parser.add_argument('-gif_percentile', '--gif_percentile', type = float, dest = 'gif_percentile', default = 99.7, help = 'percentile to use to determine max value used in gif heatmaps (otherwise outliers crowd plots)')
   args = parser.parse_args()
 
   #Internally Defined Variables-----------------------------------------------------------------------------
@@ -110,7 +112,6 @@ if __name__ == '__main__':
   #Add all Land Area Dataframes Together
   land_area_df = pd.concat([county_area_df, state_area_df, country_area_df])
 
-
   #Create Area Dataframes to use for analysis ---------------------------------------------------------------------------
   #Country level dataframes----
   selected_countries = open(args.selected_countries_file, 'r')
@@ -130,7 +131,6 @@ if __name__ == '__main__':
       #Create area object for selected country and add to area_obj_list
       area_object = area_corona_class(country, this_country_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled)
       area_obj_list.append(area_object)
-
   #State level dataframes---
   #Obtain State Population Dataframe to add to State Area Objects later
   state_population_df = pd.read_csv(args.us_state_population_file)
@@ -177,6 +177,10 @@ if __name__ == '__main__':
   #Rename dataframe columns for consistency with other dataframes
   counties_dataframe = counties_dataframe.rename(columns = {'state': args.area_var_name, 'cases': args.name_total_cases, 'deaths': args.name_total_deaths})
 
+  NYC_dataframe = counties_dataframe.loc[counties_dataframe[args.county_var_name] == 'New York City']
+  NYC_counties = ['New York', 'Kings', 'Queens', 'Bronx', 'Richmond'] 
+  nyc_dictionary = {'New York': 36061, 'Kings': 36047, 'Queens': 36081, 'Bronx': 36005, 'Richmond': 36085}
+    
   #Split county dataframe by state, and compute and append cumulative variables
   for ind in selected_counties.index:
     county = selected_counties['County'][ind]
@@ -184,9 +188,15 @@ if __name__ == '__main__':
     if len(county.strip()) > 0:
       population = selected_counties['TotalPop'][ind]
       #Get land area for selected state
-      area = land_area_df.loc[land_area_df[args.area_var_name] == country, new_land_area_name]
-      #Get dataframe for selected county for US Counties Dataframe
-      this_county_df = counties_dataframe.loc[counties_dataframe[args.county_var_name] == county]
+      area = land_area_df.loc[land_area_df[args.area_var_name] == county, new_land_area_name]
+      #Get dataframe for selected county for US Counties Dataframe, have to expand out New York City NYT county
+      if county in NYC_counties and state == 'New York':
+        this_county_df = NYC_dataframe
+        this_county_df[args.name_fips] = nyc_dictionary[county]
+        this_county_df[args.county_var_name] = county
+        this_county_df[args.area_var_name] = state
+      else:
+        this_county_df = counties_dataframe.loc[counties_dataframe[args.county_var_name] == county]
       #Require that county state matches expectation (turns out there are counties with the same name in different states)
       this_county_df = this_county_df.loc[this_county_df[args.area_var_name] == state]
       #Calculate Deaths per million people and add to dataframe
@@ -202,21 +212,15 @@ if __name__ == '__main__':
         #this_county_df.fillna(0, inplace = True)
         #Calculate CV-day dataframe per million people and for entire population
         cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_county_df, population, args)
-        if county != 'New York City':
-          #Create area object for selected country
-          fip = this_county_df.iloc[0][args.name_fips]
-          area_object = area_corona_class(county, this_county_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled, fip)
-        else:
-          #NYT dataset combines 5 NYC counties into one
-          #Expand them here with individual fips codes into individual area objects for map plots
-          for this_nyc_fip in args.nyc_fips:
-            #Set fips code for indiv NYC country
-            this_county_df[args.name_fips].fillna(this_nyc_fip, inplace=True)
-            #Create area object for this NYC county
-            area_object = area_corona_class(county, this_county_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled, this_nyc_fip)
+
+        #Create area object for selected country
+        fip = this_county_df.iloc[0][args.name_fips]
+        area_object = area_corona_class(county, this_county_df, population, area, args, cv_days_df_per_mil, cv_days_df_not_scaled, fip)
         #Add area object to area/counties_obj_list
         area_obj_list.append(area_object)
         counties_obj_list.append(area_object)
+
+
 
         if county == 'New York City' or county == 'Los Angeles' or county == 'Santa Clara' or county == 'King':
           print(county)
@@ -243,18 +247,20 @@ if __name__ == '__main__':
 
   #Plot Time Series of variables
   if(args.plot_time_series == 1):
-    plot(area_obj_list, args, 'raw_dates', ['total_deaths', 'deaths_per_mil'], ['log','linear'])
-    plot(area_obj_list, args, 'raw_covid_days', ['total_deaths'], ['log', 'linear'])
-    plot(area_obj_list, args, 'per_mil_covid_days', ['deaths_per_mil'], ['log', 'linear'])
-    #plot(area_obj_list, args, 'bar_unmodified_covid_days',0)
+    print('hi')
+    #plot(area_obj_list, args, 'raw_dates', ['total_deaths', 'deaths_per_mil'], ['log','linear'])
+    #plot(area_obj_list, args, 'raw_covid_days', ['total_deaths'], ['log', 'linear'])
+    #plot(area_obj_list, args, 'per_mil_covid_days', ['deaths_per_mil'], ['log', 'linear'])
+    #plot(area_obj_list, args, 'lives_saved_raw_covid_days', ['total_deaths'], ['linear'])
 
 
 #Make GIFs of time series variables for US counties
-ndays = 28
-#make_gif(counties_obj_list, 'df', 'total_deaths', '2020-01-21', '2020-04-01', args)
-#make_gif(counties_obj_list, 'df', 'deaths_per_mil', '2020-01-21', '2020-04-01', args)
-#make_gif_cv_days(counties_obj_list, 'cv_days_df_not_scaled', 'total_deaths', ndays, args)
-#make_gif_cv_days(counties_obj_list, 'cv_days_df_per_mil', 'deaths_per_mil', ndays, args)
+ndays = 30
+print('now starting')
+#make_gif(counties_obj_list, 'df', 'total_deaths', '2020-01-21', '2020-04-05', args)
+#make_gif(counties_obj_list, 'df', 'deaths_per_mil', '2020-01-21', '2020-04-05', args)
+make_gif_cv_days(counties_obj_list, 'cv_days_df_not_scaled', 'total_deaths', ndays, args)
+make_gif_cv_days(counties_obj_list, 'cv_days_df_per_mil', 'deaths_per_mil', ndays, args)
 
 #Logistic Fit
 #for county in county_obj_list:
