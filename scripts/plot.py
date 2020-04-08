@@ -7,11 +7,15 @@ def daterange(start_date, end_date):
 def logistic_model(x,a,b,c):
   return c/(1+np.exp(-(x-b)/a))
 
-def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0):
+def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0, scaled  = 0):
   args = area_object_list[0].input_args
   C = args.cv_day_thres
   linewidth = 1
   col_array = plt.cm.jet(np.linspace(0,1,round(len(area_object_list)/2)+5))
+  if scaled == 0:
+    append_string = 'unscaled'
+  else:
+    append_string = 'scaled'
 
   #Calculate South Korea fit for comparison to other countries first
   for area in area_object_list: 
@@ -20,6 +24,10 @@ def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0):
       x = df[args.name_cv_days]
       y = df[args.n_deaths_per_mil]
       name = area.name
+      if scaled == 0:
+        frac = area.population/C
+      else:
+        frac = 1
       popt, pcov = curve_fit(logistic_model, x, y, p0=[5,20, 0.002*C], bounds=[[0,5,0.00001*C],[20,50,C]])
       south_korea_a = popt[0]
       south_korea_b = popt[1]
@@ -29,8 +37,8 @@ def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0):
       y_predict = logistic_model(x_array, south_korea_a, south_korea_b, south_korea_c)
 
       if(lives_saved == 0):
-        plt.plot(x_array,y_predict, label = name, color = col_array[0], linewidth = linewidth)
-        plt.scatter(x,y, s = 5, color = col_array[0])
+        plt.plot(x_array,frac*y_predict, label = name, color = col_array[0], linewidth = linewidth)
+        plt.scatter(x,frac*y, s = 5, color = col_array[0])
 
   #Calculate Fit for other areas and compare to South Korea
   for i in range(len(area_object_list)):
@@ -41,6 +49,11 @@ def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0):
       x = df[args.name_cv_days]
       y = df[args.n_deaths_per_mil]
       n_prediction_days = 100
+      n_prediction_days_bar = 15
+      if scaled == 0:
+        frac = area.population/C
+      else:
+        frac = 1
 
       #Fit logistic curve to data
       popt, pcov = curve_fit(logistic_model, x, y, p0=[5,20, 0.002*C], bounds=[[0,5,0.00001*C],[20,50,C]])
@@ -49,44 +62,53 @@ def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0):
       c = popt[2]
 
       #Create arrays for plotting
-      x_array = np.linspace(0,n_prediction_days,n_prediction_days+1)
       lastday = x.iloc[-1]
+      x_array = np.linspace(0,lastday + n_prediction_days,lastday + n_prediction_days+1)
       lastentry = y.iloc[-1]
       #Calculate offset needed for south korea type future for every country and plot
       lastentry_sk = logistic_model(lastday, south_korea_a, south_korea_b, south_korea_c)
       offset = lastentry - lastentry_sk
-      x_sk_array = np.linspace(lastday, n_prediction_days, n_prediction_days - lastday + 1)
+      x_sk_array = np.linspace(lastday, lastday + n_prediction_days, n_prediction_days + 1)
       y_sk_predict = logistic_model(x_sk_array, south_korea_a, south_korea_b, south_korea_c) + offset
       #Future if behaviors do not change
       y_predict = logistic_model(x_array, a, b, c)
-      print('lives saved is {}'.format(lives_saved))
       if lives_saved == 0:
-        plt.plot(x_array,y_predict, label = name, color = col_array[i], linewidth = linewidth)
-        plt.plot(x_sk_array, y_sk_predict, color = col_array[i], linestyle = 'dashed', linewidth = linewidth)
-        plt.scatter(x,y, s = 5, color = col_array[i])
+        plt.plot(x_array,frac*y_predict, label = name, color = col_array[i], linewidth = linewidth)
+        plt.plot(x_sk_array, frac*y_sk_predict, color = col_array[i], linestyle = 'dashed', linewidth = linewidth)
+        plt.scatter(x,frac*y, s = 5, color = col_array[i])
 
       else:
         plt.close('all')
+        #Create shorted arrays for lives saved plot
+        x_sk_array_fit = x_sk_array[:n_prediction_days_bar]
+        y_sk_predict = y_sk_predict[:n_prediction_days_bar]
+        #Transform x_array to be 'Days from Now'
         x_sk_array_days_from_now = [x - x_sk_array[0] for x in x_sk_array]
-        plt.bar(x_sk_array_days_from_now, logistic_model(x_sk_array, a, b, c) - y_sk_predict)
-        #plt.plot(x_sk_array_days_from_now, logistic_model(x_sk_array, a, b, c), label = 'prediction')
-        #plt.plot(x_sk_array_days_from_now, y_sk_predict, linestyle = 'dashed', label = 'sk precition')
-        plt.legend()
+        x_sk_array_days_from_now = x_sk_array_days_from_now[:n_prediction_days_bar]
+        #Calculate and plot lives saved
+        lives_saved_array = frac*(logistic_model(x_sk_array_fit, a, b, c) - y_sk_predict)
+        plt.bar(x_sk_array_days_from_now, lives_saved_array)
         plt.xlabel('Days From Now')
-        plt.ylabel('Lives Saved')
+        if scaled == 0:
+          plt.ylabel('Lives Saved')
+        else:
+          plt.ylabel('Lives Saved per ' + get_nice_var(args.cv_day_thres))
         plt.title(name)
-        plt.savefig(args.output_dir + '/all_logisitic_lives_saved_' + name + '.png')
+        plt.savefig(args.output_dir + '/all_logisitic_lives_saved_' + name + '_' + append_string + '.png')
         plt.close('all')
 
 
   plt.yscale(scale)
-  if scale == 'log' or scale == 'linear':
-    plt.ylim(1,50)
+  plt.ylim(bottom = 1)
   plt.legend(loc = 'lower right', prop={'size':6})
   plt.xlabel('Days since 1 Death per ' + get_nice_var_name(C))
-  plt.ylabel('Deaths per ' + get_nice_var_name(C))
+  if scaled == 0:
+    plt.ylabel(get_nice_var_name(args.name_total_deaths))
+  else:
+    plt.ylabel('Deaths per ' + get_nice_var_name(C))
+
   if lives_saved == 0:
-    plt.savefig(args.output_dir + '/allsigmoidfit_' + scale + '.png')
+    plt.savefig(args.output_dir + '/allsigmoidfit_' + scale + '_' + append_string + '.png')
   plt.close('all')
 
   return

@@ -266,6 +266,8 @@ print('now starting')
 #for county in county_obj_list:
 fit_logistic_all(area_obj_list, 'linear', 0)
 fit_logistic_all(area_obj_list, 'log', 0)
+fit_logistic_all(area_obj_list, 'linear', 0, 1)
+fit_logistic_all(area_obj_list, 'log', 0, 1)
 fit_logistic_all(area_obj_list, 'linear', 1)
 fit_logistic_all(area_obj_list, 'log', 1)
 exit()
