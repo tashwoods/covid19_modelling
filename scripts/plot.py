@@ -7,68 +7,64 @@ def daterange(start_date, end_date):
 def logistic_model(x,a,b,c):
   return c/(1+np.exp(-(x-b)/a))
 
-def fit_logistic_all(area_object_list):
+def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0):
   args = area_object_list[0].input_args
+  C = args.cv_day_thres
+  linewidth = 1
+  col_array = plt.cm.jet(np.linspace(0,1,round(len(area_object_list)/2)+5))
 
+  #Calculate South Korea fit for comparison to other countries first
   for area in area_object_list: 
     if area.name == 'South Korea':
-      print('should be south korea')
-      df = area.cv_days_df_not_scaled
-      print(area.name)
-      print(df)
-      x = df['cv_days']
-      y = df['deaths_per_mil']
+      df = area.cv_days_df_per_mil
+      x = df[args.name_cv_days]
+      y = df[args.n_deaths_per_mil]
       name = area.name
-      #C = area.population
-      C = 1000000
-      linewidth = 1
-
       popt, pcov = curve_fit(logistic_model, x, y, p0=[5,20, 0.002*C], bounds=[[0,5,0.00001*C],[20,50,C]])
       south_korea_a = popt[0]
       south_korea_b = popt[1]
       south_korea_c = popt[2]
 
       x_array = np.linspace(0,100,100)
-      y_predict = logistic_model(x_array, popt[0], popt[1], popt[2])
+      y_predict = logistic_model(x_array, south_korea_a, south_korea_b, south_korea_c)
 
-      plt.plot(x_array,y_predict, label = name, color = 'y', linewidth = linewidth)
-      plt.scatter(x,y, s = 5, color = 'y')
+      plt.plot(x_array,y_predict, label = name, color = col_array[0], linewidth = linewidth)
+      plt.scatter(x,y, s = 5, color = col_array[0])
 
-  col_array = plt.cm.jet(np.linspace(0,1,round(len(area_object_list)/2)+5))
+  #Calculate Fit for other areas and compare to South Korea
   for i in range(len(area_object_list)):
-    print(i)
     area = area_object_list[i]
-    print('should be plotting the {}'.format(area.name))
-    if area.fips not in [36005, 36061, 36081, 36085] and area.name != 'South Korea':
-      df = area.cv_days_df_not_scaled
-      print(df)
-      x = df['cv_days']
-      lastday = x.iloc[-1]
-      y = df['deaths_per_mil']
-      lastentry = y.iloc[-2]
+    if area.fips not in args.nyc_fips_to_skip and area.name != 'South Korea':
       name = area.name
-      #C = area.population
-      C = 1000000
+      df = area.cv_days_df_per_mil
+      x = df[args.name_cv_days]
+      y = df[args.n_deaths_per_mil]
+      n_prediction_days = 100
 
       popt, pcov = curve_fit(logistic_model, x, y, p0=[5,20, 0.002*C], bounds=[[0,5,0.00001*C],[20,50,C]])
       a = popt[0]
       b = popt[1]
       c = popt[2]
-      x_array = np.linspace(0,100,100)
-      x_sk_array = np.linspace(lastday, 100, 100 - lastday)
-      y_predict = logistic_model(x_array, popt[0], popt[1], popt[2])
-      y_sk_predict = logistic_model(x_sk_array, south_korea_a, south_korea_b, south_korea_c) + lastentry
+      x_array = np.linspace(0,n_prediction_days,n_prediction_days)
+      lastday = x.iloc[-1]
+      lastentry = y.iloc[-1]
+      lastentry_sk = logistic_model(lastday, south_korea_a, south_korea_b, south_korea_c)
+      offset = lastentry - lastentry_sk
+      x_sk_array = np.linspace(lastday, n_prediction_days, n_prediction_days - lastday)
+      y_predict = logistic_model(x_array, a, b, c)
+      y_sk_predict = logistic_model(x_sk_array, south_korea_a, south_korea_b, south_korea_c) + offset
 
-      print('plotted')
       plt.plot(x_array,y_predict, label = name, color = col_array[i], linewidth = linewidth)
-      plt.plot(x_sk_array, y_sk_predict, color = col_array[i], linestyle = 'dashed', linewidth = linewidth)#, label = 'fit' + name)
+      plt.plot(x_sk_array, y_sk_predict, color = col_array[i], linestyle = 'dashed', linewidth = linewidth)
       plt.scatter(x,y, s = 5, color = col_array[i])
 
-  plt.yscale('log')
+  plt.yscale(scale)
+  if scale == 'log':
+    plt.ylim(bottom=1)
   plt.legend(loc = 'lower right', prop={'size':6})
-  plt.xlabel('Days since 1 Death per 1,000,000')
-  plt.ylabel('Deaths per 1,000,000')
-  plt.savefig(args.output_dir + '/' + name + '_skallsigmoidfit.pdf')
+  plt.xlabel('Days since 1 Death per ' + get_nice_var_name(C))
+  plt.ylabel('Deaths per ' + get_nice_var_name(C))
+  plt.savefig(args.output_dir + '/allsigmoidfit_' + scale + '.png')
   plt.close('all')
 
   return
