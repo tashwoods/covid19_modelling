@@ -10,7 +10,7 @@ if __name__ == '__main__':
   #Files User Selected
   parser.add_argument('-selected_countries_file', '--selected_countries_file', type = str, dest = 'selected_countries_file', default = 'selected_areas/countries.txt', help = 'Name of text file with names of countries to process')
   parser.add_argument('-selected_states_file', '--selected_states_file', type = str, dest = 'selected_states_file', default = 'selected_areas/states.txt', help = 'Name of text file with name of US states to process')
-  parser.add_argument('-selected_counties', '--selected_counties_file', type = str, dest = 'selected_counties_file', default = 'selected_areas/all_counties.txt', help = 'text file with US counties to use')
+  parser.add_argument('-selected_counties', '--selected_counties_file', type = str, dest = 'selected_counties_file', default = 'selected_areas/mycounties.txt', help = 'text file with US counties to use')
   #parser.add_argument('-selected_counties', '--selected_counties_file', type = str, dest = 'selected_counties_file', default = 'selected_areas/no_hawaii_alaska_us_counties.txt', help = 'text file with US counties to use')
   #Variables to Plot
   parser.add_argument('-time_series_variables', '--time_series_variables', type = list, dest = 'time_series_variables', default = ['total_deaths'], help = 'list of variables to plot in time series')
@@ -55,7 +55,7 @@ if __name__ == '__main__':
   parser.add_argument('-tick_font_size', '--tick_font_size', type = int, dest = 'tick_font_size', default = 8, help = 'size of tick labels in plots')
   parser.add_argument('-plot_y_scale', '--plot_y_scale', type = str, dest = 'plot_y_scale', default = 'log', help = 'scale for y axis, set to linear, log, etc')
   parser.add_argument('-linewidth', '--linewidth', type = int, dest = 'linewidth', default = 1, help = 'width of lines for plots')
-  parser.add_argument('-days_of_cv_predict', '--days_of_cv_predict', type = int, dest = 'days_of_cv_predict', default = 15, help = 'number of days past last date in dataset to predict cv trends')
+  parser.add_argument('-days_of_cv_predict', '--days_of_cv_predict', type = int, dest = 'days_of_cv_predict', default = 5, help = 'number of days past last date in dataset to predict cv trends')
   parser.add_argument('-min_growth_rate', '--min_growth_rate', type = float, dest = 'min_growth_rate', default = 0.03927, help = 'min growth rate to compare to') #0.0357 absolute best
   parser.add_argument('-min_indiv_growth_rate', '--min_indiv_growth_rate', type = float, dest = 'min_indiv_growth_rate', default = 7.6595717E-10, help = 'minimum individual contribution to growth rate')
   parser.add_argument('-gif_delay', '--gif_delay', type = str, dest = 'gif_delay', default = '50', help = 'delay between jpg for gif')
@@ -255,21 +255,20 @@ if __name__ == '__main__':
 
 
 #Make GIFs of time series variables for US counties
-ndays = 30
+ndays = 25
 print('now starting')
 #make_gif(counties_obj_list, 'df', 'total_deaths', '2020-01-21', '2020-04-05', args)
 #make_gif(counties_obj_list, 'df', 'deaths_per_mil', '2020-01-21', '2020-04-05', args)
-make_gif_cv_days(counties_obj_list, 'cv_days_df_not_scaled', 'total_deaths', ndays, args)
-make_gif_cv_days(counties_obj_list, 'cv_days_df_per_mil', 'deaths_per_mil', ndays, args)
+#make_gif_cv_days(counties_obj_list, 'cv_days_df_not_scaled', 'total_deaths', ndays, args, 210)
+#make_gif_cv_days(counties_obj_list, 'cv_days_df_per_mil', 'deaths_per_mil', ndays, args, 500)
 
 #Logistic Fit
 #for county in county_obj_list:
-#fit_logistic_all(area_obj_list)
-'''
+fit_logistic_all(area_obj_list)
+exit()
 for county in area_obj_list:
   print('--------------------------')
   print('COUNTY: {}'.format(county.name))
   this_df = county.cv_days_df_not_scaled
   print(this_df)
   fit_logistic(this_df['cv_days'], this_df['total_deaths'], county.population, args, county.name)
-'''

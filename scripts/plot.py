@@ -21,6 +21,7 @@ def fit_logistic_all(area_object_list):
       name = area.name
       #C = area.population
       C = 1000000
+      linewidth = 1
 
       popt, pcov = curve_fit(logistic_model, x, y, p0=[5,20, 0.002*C], bounds=[[0,5,0.00001*C],[20,50,C]])
       south_korea_a = popt[0]
@@ -30,8 +31,8 @@ def fit_logistic_all(area_object_list):
       x_array = np.linspace(0,100,100)
       y_predict = logistic_model(x_array, popt[0], popt[1], popt[2])
 
-      plt.plot(x_array,y_predict, label = name + 'fit', color = 'y')
-      #plt.scatter(x,y, s = 5, color = 'y')
+      plt.plot(x_array,y_predict, label = name, color = 'y', linewidth = linewidth)
+      plt.scatter(x,y, s = 5, color = 'y')
 
   col_array = plt.cm.jet(np.linspace(0,1,round(len(area_object_list)/2)+5))
   for i in range(len(area_object_list)):
@@ -44,7 +45,7 @@ def fit_logistic_all(area_object_list):
       x = df['cv_days']
       lastday = x.iloc[-1]
       y = df['deaths_per_mil']
-      lastentry = y.iloc[-1]
+      lastentry = y.iloc[-2]
       name = area.name
       #C = area.population
       C = 1000000
@@ -59,13 +60,13 @@ def fit_logistic_all(area_object_list):
       y_sk_predict = logistic_model(x_sk_array, south_korea_a, south_korea_b, south_korea_c) + lastentry
 
       print('plotted')
-      plt.plot(x_array,y_predict, label = name, color = col_array[i])
-      plt.plot(x_sk_array, y_sk_predict, color = col_array[i], linestyle = 'dashed', label = 'fit' + name)
-      #plt.scatter(x,y, s = 5, color = col)
+      plt.plot(x_array,y_predict, label = name, color = col_array[i], linewidth = linewidth)
+      plt.plot(x_sk_array, y_sk_predict, color = col_array[i], linestyle = 'dashed', linewidth = linewidth)#, label = 'fit' + name)
+      plt.scatter(x,y, s = 5, color = col_array[i])
 
   plt.yscale('log')
   plt.legend(loc = 'lower right', prop={'size':6})
-  plt.xlabel('Days since ' + str(args.cv_day_thres_notscaled) + ' Death')
+  plt.xlabel('Days since 1 Death per 1,000,000')
   plt.ylabel('Deaths per 1,000,000')
   plt.savefig(args.output_dir + '/' + name + '_skallsigmoidfit.pdf')
   plt.close('all')
@@ -182,7 +183,7 @@ def make_gif(area_obj_list, dataframe_name, var, start_date, end_date, args):
   make_gif_command += args.output_dir + '/' + var + '.gif'
   os.system(make_gif_command)
 
-def make_gif_cv_days(area_obj_list, dataframe_name, var, ndays, args):
+def make_gif_cv_days(area_obj_list, dataframe_name, var, ndays, args, thisvmax = 0):
   df_list = list()
   maxes = list()
   #create area_object dataframes list per day for GIFs
@@ -210,8 +211,11 @@ def make_gif_cv_days(area_obj_list, dataframe_name, var, ndays, args):
   for i in range(ndays):
     df = df_list[i]
     pd.set_option('display.max_rows', None)
-    this_variable_max_array.append(np.nanpercentile(df[var], args.gif_percentile))
+    this_variable_max_array.append(np.nanpercentile(df[var], 10))
   vmax = max(this_variable_max_array)
+  print('VMAXXX')
+  print(vmax)
+  vmax = thisvmax
 
   #Create jpegs for each day to be combined later into gifs
   filenames = []
