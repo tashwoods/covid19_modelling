@@ -33,11 +33,19 @@ def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0, scaled  =
       south_korea_b = popt[1]
       south_korea_c = popt[2]
 
+      print('-------------------------')
+      print(name)
+      print(1/south_korea_a)
+      print(south_korea_b)
+      print(south_korea_c)
+
+
+
       x_array = np.linspace(0,100,100)
       y_predict = logistic_model(x_array, south_korea_a, south_korea_b, south_korea_c)
 
       if(lives_saved == 0):
-        plt.plot(x_array,frac*y_predict, label = name, color = col_array[0], linewidth = linewidth)
+        plt.plot(x_array,frac*y_predict, label = name + ': ' + str(round(frac/south_korea_a,2)), color = col_array[0], linewidth = linewidth)
         plt.scatter(x,frac*y, s = 5, color = col_array[0])
 
   #Calculate Fit for other areas and compare to South Korea
@@ -60,6 +68,11 @@ def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0, scaled  =
       a = popt[0]
       b = popt[1]
       c = popt[2]
+      print('-------------------------')
+      print(name)
+      print(1/a)
+      print(b)
+      print(c)
 
       #Create arrays for plotting
       lastday = x.iloc[-1]
@@ -73,7 +86,7 @@ def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0, scaled  =
       #Future if behaviors do not change
       y_predict = logistic_model(x_array, a, b, c)
       if lives_saved == 0:
-        plt.plot(x_array,frac*y_predict, label = name, color = col_array[i], linewidth = linewidth)
+        plt.plot(x_array,frac*y_predict, label = name + ': '+ str(round(frac/a,2)), color = col_array[i], linewidth = linewidth)
         plt.plot(x_sk_array, frac*y_sk_predict, color = col_array[i], linestyle = 'dashed', linewidth = linewidth)
         plt.scatter(x,frac*y, s = 5, color = col_array[i])
 

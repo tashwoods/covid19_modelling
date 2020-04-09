@@ -44,6 +44,9 @@ if __name__ == '__main__':
   #Specify output and its final location
   parser.add_argument('-output_dir', '--output_dir', type = str, dest = 'output_dir', default = 'output', help = 'name of output_dir')
   parser.add_argument('-plot_time_series', '--plot_time_series', type = int, dest = 'plot_time_series', default = 1, help = 'set to one to plot time series, zero to not')
+  parser.add_argument('-fit_logistic', '--fit_logistic', type = int, dest = 'fit_logistic', default = 0, help = 'set to one to fit area trends to logistics')
+  parser.add_argument('-make_gif', '--make_gif', type = int, dest = 'make_gif', default = 0, help = 'set to one to make gifs of variables for US counties')
+  parser.add_argument('-do_lstm', '--do_lstm', type = int, dest = 'do_lstm', default = 1, help = 'set to one to fit time series distributions using lstm')
   parser.add_argument('-growth_rates', '--growth_rates', type = list, dest = 'growth_rates', default = [1.35], help = 'list of growth rates to plot')
   #Analysis Variables
   parser.add_argument('-cv_day_thres', '--cv_day_thres', type = int, dest = 'cv_day_thres', default = 1000000, help = 'total number of cases to consider it the first day of cv19')
@@ -257,23 +260,42 @@ if __name__ == '__main__':
 #Make GIFs of time series variables for US counties
 ndays = 25
 print('now starting')
-#make_gif(counties_obj_list, 'df', 'total_deaths', '2020-01-21', '2020-04-05', args)
-#make_gif(counties_obj_list, 'df', 'deaths_per_mil', '2020-01-21', '2020-04-05', args)
-#make_gif_cv_days(counties_obj_list, 'cv_days_df_not_scaled', 'total_deaths', ndays, args, 210)
-#make_gif_cv_days(counties_obj_list, 'cv_days_df_per_mil', 'deaths_per_mil', ndays, args, 500)
+if(args.make_gif == 1):
+  make_gif(counties_obj_list, 'df', 'total_deaths', '2020-01-21', '2020-04-05', args)
+  make_gif(counties_obj_list, 'df', 'deaths_per_mil', '2020-01-21', '2020-04-05', args)
+  make_gif_cv_days(counties_obj_list, 'cv_days_df_not_scaled', 'total_deaths', ndays, args, 210)
+  make_gif_cv_days(counties_obj_list, 'cv_days_df_per_mil', 'deaths_per_mil', ndays, args, 500)
 
 #Logistic Fit
-#for county in county_obj_list:
-fit_logistic_all(area_obj_list, 'linear', 0)
-fit_logistic_all(area_obj_list, 'log', 0)
-fit_logistic_all(area_obj_list, 'linear', 0, 1)
-fit_logistic_all(area_obj_list, 'log', 0, 1)
-fit_logistic_all(area_obj_list, 'linear', 1)
-fit_logistic_all(area_obj_list, 'log', 1)
-exit()
-for county in area_obj_list:
-  print('--------------------------')
-  print('COUNTY: {}'.format(county.name))
-  this_df = county.cv_days_df_not_scaled
-  print(this_df)
-  fit_logistic(this_df['cv_days'], this_df['total_deaths'], county.population, args, county.name)
+if(args.fit_logistic == 1):
+  #Plot combined logistic fits
+  fit_logistic_all(area_obj_list, 'linear', 0)
+  fit_logistic_all(area_obj_list, 'log', 0)
+  fit_logistic_all(area_obj_list, 'linear', 0, 1)
+  fit_logistic_all(area_obj_list, 'log', 0, 1)
+  fit_logistic_all(area_obj_list, 'linear', 1)
+  fit_logistic_all(area_obj_list, 'log', 1)
+  #Plot individual logistic fits
+  for county in area_obj_list:
+    this_df = county.cv_days_df_not_scaled
+    fit_logistic(this_df['cv_days'], this_df['total_deaths'], county.population, args, county.name)
+
+if(args.do_lstm == 1):
+  print('hi') 
+  np.random.seed(7)
+  area = area_obj_list[0]
+  df = area.df
+  print(area)
+  print(df)
+  print(type(df['date']))
+  print(df.dtypes)
+  date_format = '%Y-%m-%d'
+  start_date = datetime.strptime('2020-01-01', date_format)
+  end_date = datetime.strptime('2020-02-01', date_format)
+  print('diff')
+  print((start_date - end_date).days)
+  #df['days_2020'] = (datetime.strptime(str(df['date']), date_format) - start_date).days
+  #this_country_df[args.n_deaths_per_mil] = args.cv_day_thres*this_country_df[args.name_total_deaths].div(population)
+  scaler = MinMaxScaler(feature_range=(0,1))
+  #df = scaler.fit_transform(df)
+  print(df)

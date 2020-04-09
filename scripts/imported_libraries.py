@@ -41,7 +41,12 @@ from datetime import datetime, timedelta, date #for time dependent gif plots
 from scipy.optimize import curve_fit #to fit sigmoids of infection/death rates
 from scipy.optimize import fsolve #to solve logistic curve for infection end date
 
-
+#For LSTM based on https://machinelearningmastery.com/time-series-prediction-lstm-recurrent-neural-networks-python-keras/
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.layers import LSTM
+from sklearn.preprocessing import MinMaxScaler
+########
 
 from plot import *
 from organize_input_output import *
