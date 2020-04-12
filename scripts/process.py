@@ -283,7 +283,7 @@ if(args.fit_logistic == 1):
     fit_logistic(this_df['cv_days'], this_df['total_deaths'], county.population, args, county.name)
 
 if(args.do_lstm == 1):
-  lstm_combined(area_obj_list[0], args)
-  #lstm(area_obj_list[0], args)
+  #lstm_combined(area_obj_list[0], args)
+  lstm(area_obj_list[0], args)
   #new_lstm(area_obj_list[0], args)
 
