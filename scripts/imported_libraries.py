@@ -45,6 +45,7 @@ from scipy.optimize import fsolve #to solve logistic curve for infection end dat
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM
+from keras.layers import *
 from sklearn.preprocessing import MinMaxScaler
 ########
 from keras.preprocessing.sequence import pad_sequences
