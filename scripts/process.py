@@ -61,6 +61,7 @@ if __name__ == '__main__':
   parser.add_argument('-days_of_cv_predict', '--days_of_cv_predict', type = int, dest = 'days_of_cv_predict', default = 5, help = 'number of days past last date in dataset to predict cv trends')
   parser.add_argument('-min_growth_rate', '--min_growth_rate', type = float, dest = 'min_growth_rate', default = 0.03927, help = 'min growth rate to compare to') #0.0357 absolute best
   parser.add_argument('-min_indiv_growth_rate', '--min_indiv_growth_rate', type = float, dest = 'min_indiv_growth_rate', default = 7.6595717E-10, help = 'minimum individual contribution to growth rate')
+  parser.add_argument('-days_to_count_from_lstm', '--days_to_count_from_lstm', type = str, dest = 'days_to_count_from_lstm', default = '2020-01-01', help = 'days to count from for lstm')
   parser.add_argument('-gif_delay', '--gif_delay', type = str, dest = 'gif_delay', default = '50', help = 'delay between jpg for gif')
   parser.add_argument('-gif_percentile', '--gif_percentile', type = float, dest = 'gif_percentile', default = 99.7, help = 'percentile to use to determine max value used in gif heatmaps (otherwise outliers crowd plots)')
   args = parser.parse_args()
@@ -281,21 +282,6 @@ if(args.fit_logistic == 1):
     fit_logistic(this_df['cv_days'], this_df['total_deaths'], county.population, args, county.name)
 
 if(args.do_lstm == 1):
-  print('hi') 
-  np.random.seed(7)
-  area = area_obj_list[0]
-  df = area.df
-  print(area)
-  print(df)
-  print(type(df['date']))
-  print(df.dtypes)
-  date_format = '%Y-%m-%d'
-  start_date = datetime.strptime('2020-01-01', date_format)
-  end_date = datetime.strptime('2020-02-01', date_format)
-  print('diff')
-  print((start_date - end_date).days)
-  #df['days_2020'] = (datetime.strptime(str(df['date']), date_format) - start_date).days
-  #this_country_df[args.n_deaths_per_mil] = args.cv_day_thres*this_country_df[args.name_total_deaths].div(population)
-  scaler = MinMaxScaler(feature_range=(0,1))
-  #df = scaler.fit_transform(df)
-  print(df)
+  lstm(area_obj_list[0], args)
+  #new_lstm(area_obj_list[0], args)
+
