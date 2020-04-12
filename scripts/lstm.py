@@ -1,5 +1,8 @@
 from imported_libraries import *
 
+def lstm_combined(area_obj_list, args):
+  print('hi')
+
 def lstm(area, args):
   print('---------------------LSTM----------')
   #HARDCODED THINGS TO FIX LATER
