@@ -5,7 +5,7 @@ def lstm(area, args):
   #HARDCODED THINGS TO FIX LATER
   np.random.seed(7)
   df = area.cv_days_df_not_scaled
-  number_of_test_dfs = -3 #number of days to keep for testing
+  number_of_test_dfs = -10 #number of days to keep for testing
   min_entries_df = 5
   train_length = 60
   predict_var = 'total_deaths'
@@ -100,12 +100,23 @@ def lstm(area, args):
   model.add(Dropout(0.2))
   '''
   model.summary()
-  history = model.fit(final_train_X, final_train_Y, epochs = 20, validation_data = (final_test_X, final_test_Y), verbose = 1, shuffle = False)
+  history = model.fit(final_train_X, final_train_Y, epochs = 100, validation_data = (final_test_X, final_test_Y), verbose = 1, shuffle = False)
   # plot history
   plt.plot(history.history['loss'], label='train')
   plt.plot(history.history['val_loss'], label='test')
   plt.legend()
   plt.savefig('history.pdf')
+
+  #Plot actual and prediction
+  y_predict = Y_scaler.inverse_transform(model.predict(final_test_X))
+  y_actual = Y_scaler.inverse_transform(final_test_Y)
+  x_array = np.linspace(0,len(y_predict)-1, len(y_predict))
+  print(x_array)
+  plt.close('all')
+  plt.plot(x_array, y_predict, label = 'prediction')
+  plt.plot(x_array, y_actual, label = 'actual')
+  plt.legend()
+  plt.savefig('comparelstm.pdf')
 
   exit()
 
