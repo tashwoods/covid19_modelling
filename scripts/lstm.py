@@ -8,12 +8,14 @@ def lstm(area, args):
   #HARDCODED THINGS TO FIX LATER
   np.random.seed(7)
   df = area.cv_days_df_not_scaled
+  print(df.dtypes)
   number_of_test_dfs = -10 #number of days to keep for testing
-  percent_train_df = 0.80
+  percent_train_df = 0.90
   min_entries_df = 5
   train_length = 60
   predict_var = 'total_deaths'
 
+  #Convert Y-M-D to corresponding day in 2020 (e.g. Jan 2 2020 = day 2 of 2020, Dec 31 is day -1 of 2020, format needed for LSTM)
   date_format = '%Y-%m-%d'
   start_date = datetime.strptime(args.days_to_count_from_lstm, date_format) 
   df = df.astype({'date': str})
@@ -32,7 +34,7 @@ def lstm(area, args):
   train_set_length = int(len(df_list)*percent_train_df)
   train_set = df_list[:train_set_length]
   test_set = df_list[train_set_length:]
-  #Determine how to scale based on last train set 
+  #Scale datasets based on last train set 
   scaling_set = train_set[-1]
   scaling_set_X, scaling_set_Y = get_X_Y(scaling_set, predict_var)
   X_scaler = MinMaxScaler(feature_range = (-1,1))
@@ -53,63 +55,22 @@ def lstm(area, args):
   X_list_test = list()
   Y_list_test = list()
   for i in range(len(test_set)):
-    print('testing sets formatting----------')
     this_test_set = test_set[i]
     this_test_X, this_test_Y = get_X_Y(this_test_set, predict_var, X_scaler, Y_scaler, train_length)
     X_list_test.append(this_test_X)
     Y_list_test.append(this_test_Y)
   final_test_X = np.array(X_list_test)
   final_test_Y = np.array(Y_list_test)
-  
-  print('final train X shape')
-  print(final_train_X.shape)
-  print('final train Y shape')
-  print(final_train_Y.shape)
-  print('final test X shape')
-  print(final_test_X.shape)
-  print('final test Y shape')
-  print(final_test_Y.shape)
-  #final_train_X = final_train_X.reshape(final_train_X.shape[0], final_train_X.shape[1], final_train_X.shape[2])
   final_train_Y = final_train_Y.reshape(-1,1)
-  #final_test_X = final_test_X.reshape(final_test_X.shape[0], final_test_X.shape[1], final_test_X.shape[2])
   final_test_Y = final_test_Y.reshape(-1,1)
 
-  #Hyperparamters Tests
+  #Hyperparamters
   n_neurons = 1
   neuron_array = [1]
   dropout = 0.2
-  epochs = 100
+  epochs = 30
   repeats = 1
-  '''
-  #test batch size vs RMSE
-  train_min_array = list()
-  test_min_array = list()
-  neuron_plot_array = list()
-  for r in range(repeats):
-    for i in neuron_array:
-      model = Sequential()
-      model.add(Masking(mask_value = -100, input_shape=(final_train_X.shape[1], final_train_X.shape[2])))
-      model.add(LSTM(i, input_shape = (final_train_X.shape[1], final_train_X.shape[2])))
-      model.add(Dropout(dropout))
-      model.add(Dense(1))
-      model.compile(loss='mean_squared_error', optimizer = 'adam')
-      history = model.fit(final_train_X, final_train_Y, epochs = epochs, validation_data = (final_test_X, final_test_Y), verbose = 1, shuffle = False)
-      model.reset_states()
-      train_min_array.append(min(history.history['loss']))
-      test_min_array.append(min(history.history['val_loss']))
-      neuron_plot_array.append(i)
-    if r == 0:
-      plt.plot(neuron_plot_array, train_min_array, color = 'blue', label = 'Train')
-      plt.plot(neuron_plot_array, test_min_array, color = 'orange', label = 'Test')
-    else:
-      plt.plot(neuron_plot_array, train_min_array, color = 'blue')
-      plt.plot(neuron_plot_array, test_min_array, color = 'orange')
-  plt.ylabel('RMSE')
-  plt.xlabel('Number of Neurons')
-  plt.legend()
-  plt.savefig(args.output_dir + '/n_neurons.pdf')
-  '''
-  #test epoch size vs RMSE
+  #Test epoch size vs RMSE
   for i in range(repeats):
     model = Sequential()
     model.add(Masking(mask_value = -100, input_shape=(final_train_X.shape[1], final_train_X.shape[2])))
@@ -119,38 +80,17 @@ def lstm(area, args):
     model.compile(loss='mean_squared_error', optimizer = 'adam')
     history = model.fit(final_train_X, final_train_Y, epochs = epochs, validation_data = (final_test_X, final_test_Y), verbose = 1, shuffle = False)
     model.reset_states()
-    # plot history
+    #Plot history
     if i == 0:
       plt.plot(history.history['loss'], label = 'Train', color = 'blue')
       plt.plot(history.history['val_loss'], label = 'Test', color = 'orange')
     else:
       plt.plot(history.history['loss'], color = 'blue')
       plt.plot(history.history['val_loss'], color = 'orange')
-    plt.xlabel('Epoch')
-    plt.ylabel('RMSE')
-    plt.legend()
-  plt.savefig(args.output_dir + '/epoch_rmse.pdf')
-
-  #Plot actual and prediction
-  def get_days(scaler, data):
-    days = list()
-    for i in range(len(data)):
-      X_train = scaler.inverse_transform(data[i])
-      X_train = X_train[:,0]
-      X_train = round(X_train[-1],0) + 1
-      days.append(X_train)
-    return days
-
-  x_predict_train = get_days(X_scaler, final_train_X)
-  y_predict_train = Y_scaler.inverse_transform(model.predict(final_train_X))
-  x_predict_test = get_days(X_scaler, final_test_X)
-  y_predict_test = Y_scaler.inverse_transform(model.predict(final_test_X))
-
-  plt.close('all')
-
-  data_Y = Y_scaler.inverse_transform(np.concatenate((final_train_Y, final_test_Y)))
-  data_X = np.concatenate((x_predict_train, x_predict_test))
-
+  plt.xlabel('Epoch')
+  plt.ylabel('RMSE')
+  plt.legend()
+  plt.savefig(args.output_dir + '/' + area.name + '_epoch_rmse.pdf')
 
   #Design Network
   model = Sequential()
@@ -161,31 +101,51 @@ def lstm(area, args):
   model.compile(loss='mean_squared_error', optimizer = 'adam')
   history = model.fit(final_train_X, final_train_Y, epochs = 100, validation_data = (final_test_X, final_test_Y), verbose = 1, shuffle = False)
 
-
-  plt.plot(x_predict_train, y_predict_train, label = 'LSTM Train Set Prediction', color = 'orange')
-  plt.plot(x_predict_test, y_predict_test, label = 'LSTM Test Set Prediction', color = 'blue' )
-  plt.plot(data_X, data_Y, label = 'Data', color = 'red')
-  plt.xlabel('COVID Outbreak Days')
-  plt.ylabel('Total Deaths')
-  plt.legend()
-  plt.savefig('alllstm.pdf')
-
-  #Plot actual and prediction
-  y_predict = Y_scaler.inverse_transform(model.predict(final_test_X))
-  y_actual = Y_scaler.inverse_transform(final_test_Y)
-  x_array = np.linspace(0,len(y_predict)-1, len(y_predict))
-  print(x_array)
+  #Plot actual and prediction with real days
   plt.close('all')
-  plt.plot(x_array, y_predict, label = 'prediction')
-  plt.plot(x_array, y_actual, label = 'actual')
+  y_train_predict = Y_scaler.inverse_transform(model.predict(final_train_X))
+  y_train_actual = Y_scaler.inverse_transform(final_train_Y)
+  y_test_predict = Y_scaler.inverse_transform(model.predict(final_test_X))
+  y_test_actual = Y_scaler.inverse_transform(final_test_Y)
+  x_array_train = get_days(X_scaler, final_train_X, args)
+  x_array_test = get_days(X_scaler, final_test_X, args)
+
+  markersize = 3
+  print('natasha')
+  print(type(y_test_actual))
+  all_predict = np.concatenate((y_train_predict, y_test_predict), axis = 0)
+  all_data = np.concatenate((y_train_actual, y_test_actual), axis = 0)
+  rmse = math.sqrt(mean_squared_error(all_predict, all_data))
+  plt.plot(x_array_train, y_train_predict, color = 'orange', label = 'LSTM: ' + str(round(rmse,2)))
+  plt.plot(x_array_test, y_test_predict, color = 'orange')
+  plt.plot(x_array_train, y_train_actual, 'bo-', label = 'Train Set', markersize = markersize)
+  plt.plot(x_array_test, y_test_actual, 'go-', label = 'Test Set', markersize = markersize)
+  plt.title(area.name)
+  plt.ylabel('Total Deaths')
+  plt.xlabel('Date')
+  plt.xticks(fontsize = args.tick_font_size)
   plt.legend()
-  plt.savefig('comparelstm.pdf')
-  #model = Sequential()
-  #model.add(LSTM(5, batch_input_shape = (1,final_train_X.shape[1], final_train_X.shape[2])))
-  #model.add(Dense(1))
-  #model.compile(loss='mae', optimizer = 'adam')
-  #Fit Network
-  #history = model.fit(final_train_X, final_train_Y, epochs = 3, batch_size = 1, validation_data = (final_test_X, final_test_Y), verbose = 2, shuffle = False)
+  plt.savefig(args.output_dir + '/' + area.name + '_lstm_realdays.pdf')
+  plt.close('all')
+
+def get_days(scaler, data, args):
+  days = list()
+  date_format = '%Y-%m-%d'
+  start_date = datetime.strptime(args.days_to_count_from_lstm, date_format) 
+  for i in range(len(data)):
+    X_train = scaler.inverse_transform(data[i])
+    X_train = X_train[:,0]
+    X_train = round(X_train[-1],0) + 1
+    print(X_train)
+
+    date = start_date + timedelta(X_train -1)
+    days.append(date)
+
+    #df = df.astype({'date': str})
+    #df['days'] = [(datetime.strptime(i, date_format) - start_date).days for i in df['date'] ]
+  print(days)
+  return days
+
 
 def get_X_Y(df, predict_var, X_scaler=0, Y_scaler=0, length = 0):
   X = df.iloc[:-1,:] #X is everything except the last row

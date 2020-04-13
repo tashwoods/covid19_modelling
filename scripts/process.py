@@ -254,7 +254,7 @@ if __name__ == '__main__':
   if(args.plot_time_series == 1):
     print('hi')
     #plot(area_obj_list, args, 'raw_dates', ['total_deaths', 'deaths_per_mil'], ['log','linear'])
-    #plot(area_obj_list, args, 'raw_covid_days', ['total_deaths'], ['log', 'linear'])
+    plot(area_obj_list, args, 'raw_covid_days', ['total_deaths'], ['log', 'linear'])
     #plot(area_obj_list, args, 'per_mil_covid_days', ['deaths_per_mil'], ['log', 'linear'])
     #plot(area_obj_list, args, 'lives_saved_raw_covid_days', ['total_deaths'], ['linear'])
 
@@ -269,14 +269,15 @@ if(args.make_gif == 1):
   make_gif_cv_days(counties_obj_list, 'cv_days_df_per_mil', 'deaths_per_mil', ndays, args, 500)
 
 #Logistic Fit
-if(args.fit_logistic == 1):
+#if(args.fit_logistic == 1):
+if(1==1):
   #Plot combined logistic fits
   fit_logistic_all(area_obj_list, 'linear', 0)
-  fit_logistic_all(area_obj_list, 'log', 0)
-  fit_logistic_all(area_obj_list, 'linear', 0, 1)
-  fit_logistic_all(area_obj_list, 'log', 0, 1)
-  fit_logistic_all(area_obj_list, 'linear', 1)
-  fit_logistic_all(area_obj_list, 'log', 1)
+  #fit_logistic_all(area_obj_list, 'log', 0)
+  #fit_logistic_all(area_obj_list, 'linear', 0, 1)
+  #fit_logistic_all(area_obj_list, 'log', 0, 1)
+  #fit_logistic_all(area_obj_list, 'linear', 1)
+  #fit_logistic_all(area_obj_list, 'log', 1)
   #Plot individual logistic fits
   for county in area_obj_list:
     this_df = county.cv_days_df_not_scaled
@@ -284,6 +285,7 @@ if(args.fit_logistic == 1):
 
 if(args.do_lstm == 1):
   #lstm_combined(area_obj_list[0], args)
-  lstm(area_obj_list[0], args)
-  #new_lstm(area_obj_list[0], args)
+  for i in range(len(area_obj_list)):
+    lstm(area_obj_list[i], args)
+    #new_lstm(area_obj_list[0], args)
 

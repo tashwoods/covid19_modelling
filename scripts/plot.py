@@ -45,7 +45,8 @@ def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0, scaled  =
       y_predict = logistic_model(x_array, south_korea_a, south_korea_b, south_korea_c)
 
       if(lives_saved == 0):
-        plt.plot(x_array,frac*y_predict, label = name + ': ' + str(round(frac/south_korea_a,2)), color = col_array[0], linewidth = linewidth)
+        rmse = round(math.sqrt(mean_squared_error(frac*logistic_model(x, south_korea_a, south_korea_b, south_korea_c), frac*y)),2)
+        plt.plot(x_array,frac*y_predict, label = name + ': ' + str(round(frac/south_korea_a,2)) + ' RMSE: ' + str(rmse) , color = col_array[0], linewidth = linewidth)
         plt.scatter(x,frac*y, s = 5, color = col_array[0])
 
   #Calculate Fit for other areas and compare to South Korea
@@ -86,10 +87,10 @@ def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0, scaled  =
       #Future if behaviors do not change
       y_predict = logistic_model(x_array, a, b, c)
       if lives_saved == 0:
-        plt.plot(x_array,frac*y_predict, label = name + ': '+ str(round(frac/a,2)), color = col_array[i], linewidth = linewidth)
+        rmse = round(math.sqrt(mean_squared_error(frac*logistic_model(x,a,b,c), frac*y)),2)
+        plt.plot(x_array,frac*y_predict, label = name + ': '+ str(round(frac/a,2)) + ' RMSE: ' + str(rmse), color = col_array[i], linewidth = linewidth)
         plt.plot(x_sk_array, frac*y_sk_predict, color = col_array[i], linestyle = 'dashed', linewidth = linewidth)
         plt.scatter(x,frac*y, s = 5, color = col_array[i])
-
       else:
         plt.close('all')
         #Create shorted arrays for lives saved plot
@@ -109,7 +110,6 @@ def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0, scaled  =
         plt.title(name)
         plt.savefig(args.output_dir + '/all_logisitic_lives_saved_' + name + '_' + append_string + '.png')
         plt.close('all')
-
 
   plt.yscale(scale)
   plt.ylim(bottom = 1)
@@ -340,10 +340,12 @@ def get_shifted_prediction(area_df, var, slope, intercept, best_growth_rate, arg
   #Return arrays for x, y_fitted_shifted, y_best_shifted
   last_predict_day = last_x + args.days_of_cv_predict
   x = np.linspace(last_x,last_predict_day, last_predict_day - last_x + 1)
+  x_all = np.linspace(0,last_x, last_x)
+  y_all = 10**((slope * x) + shifted_intercept)
   #Since inputs for y were log(y), convert back to y
   y = 10**((slope * x) + shifted_intercept)
   y_best = 10**((best_growth_rate *x) + best_shifted_intercept)
-  return x, y, y_best
+  return x, y, y_best, y_all
 
 def get_lives_saved_bar_chart(x_predict, y_predict, y_best, name, args, savename,scale):
   plt.close('all') 
@@ -409,13 +411,17 @@ def plot(area_objects_list, args, plot_type, variables, scale_array):
           #Calculate fitted prediction
           prediction = 10**(model(x))
           #Calculate fitted prediction with constraint that last point matches the last dataset value
-          x_predict, y_predict, y_best = get_shifted_prediction(area_df, var, log_slope, log_intercept, args.min_growth_rate, area.input_args)
+          x_predict, y_predict, y_best, y_all = get_shifted_prediction(area_df, var, log_slope, log_intercept, args.min_growth_rate, area.input_args)
           #Plot Data and Prediction
           growth_rate = round(10**log_slope,2)
-          plt.plot(area_df.index.values, area_df[var], label = area.name + ':' + str(growth_rate), linewidth = args.linewidth)
+          print(prediction)
+          print(area_df[var])
+          rmse = round(math.sqrt(mean_squared_error(prediction[:-args.days_of_cv_predict], area_df[var])), 2)
+          plt.plot(area_df.index.values, area_df[var], label = area.name + ':' + str(growth_rate) + ' RMSE: ' + str(rmse), linewidth = args.linewidth)
           plt.plot(x_predict,y_predict)
           plt.xlabel('Days since ' + str(args.cv_day_thres_notscaled) + ' Deaths')
           plt.ylabel(get_nice_var_name(var, args))
+
 
         #Plot var/1M vs outbreak days
         elif plot_type == 'per_mil_covid_days':
@@ -431,7 +437,7 @@ def plot(area_objects_list, args, plot_type, variables, scale_array):
           log_intercept = model[0]
           log_slope = model[1]
           #Calculate fitted prediction with constraint that last point matches the last dataset value
-          x_predict, y_predict, y_best = get_shifted_prediction(area_df, var, log_slope, log_intercept, args.min_growth_rate, area.input_args)
+          x_predict, y_predict, y_best, y_all = get_shifted_prediction(area_df, var, log_slope, log_intercept, args.min_growth_rate, area.input_args)
           #Plot Data and Prediction
           #Slope in linear not log(slope)
           growth_rate = round(10**log_slope,2)
@@ -453,12 +459,12 @@ def plot(area_objects_list, args, plot_type, variables, scale_array):
             #slope = round(10**log_slope,2) 
             prediction = 10**(model(x))
             #Calculate fitted prediction with constraint that last point matches the last dataset value
-            x_predict, y_predict, y_best = get_shifted_prediction(area_df, var, log_slope, log_intercept, args.min_growth_rate, area.input_args)
+            x_predict, y_predict, y_best, y_all = get_shifted_prediction(area_df, var, log_slope, log_intercept, args.min_growth_rate, area.input_args)
             get_lives_saved_bar_chart(x_predict, y_predict, y_best, area.name, area.input_args, 'All', scale)
             #Calculate Individual impact
             current_indiv_slope = (log_slope/area.population)
             improved_slope = log_slope - (current_indiv_slope - args.min_indiv_growth_rate)
-            x_predict, y_predict_indiv, y_best_indiv = get_shifted_prediction(area_df, var, log_slope, log_intercept, improved_slope, area.input_args)
+            x_predict, y_predict_indiv, y_best_indiv, y_all = get_shifted_prediction(area_df, var, log_slope, log_intercept, improved_slope, area.input_args)
             get_lives_saved_bar_chart(x_predict, y_predict_indiv, y_best_indiv, area.name, area.input_args, 'Individual', scale)
 
       #Plot Nominal Growth Rates on COVID Days Plots
