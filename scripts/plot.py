@@ -10,10 +10,9 @@ def logistic_model(x,a,b,c):
 def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0, scaled  = 0):
   args = area_object_list[0].input_args
   C = args.cv_day_thres
-  n_prediction_days = 10
   n_prediction_days_bar = 15
   linewidth = args.linewidth
-  markersize = 3
+  markersize = args.markersize
   col_array = plt.cm.jet(np.linspace(0,1,round(len(area_object_list)/2)+5))
   append_string = 'scaled'
   if scaled == 0:
@@ -21,32 +20,31 @@ def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0, scaled  =
 
   #Calculate South Korea fit for comparison to other countries first
   for area in area_object_list: 
+    all_data = area.cv_days_df_per_mil
     name = area.name
     frac = 1
     if scaled == 0:
       frac = area.population/C
     if name == 'South Korea':
-      train_set, test_set = get_train_test_sets(area.cv_days_df_per_mil, args)
+      train_set, test_set = get_train_test_sets(all_data, args)
       x = train_set[args.name_cv_days]
       y = train_set[args.n_deaths_per_mil]
 
       popt, pcov = curve_fit(logistic_model, x, y, p0=[5,20, 0.002*C], bounds=[[0,5,0.00001*C],[20,50,C]])
       south_korea_a, south_korea_b, south_korea_c = popt[0], popt[1], popt[2]
 
-      lastday = x.iloc[-1]
-      x_array = np.linspace(0,lastday + n_prediction_days,lastday + n_prediction_days+1)
+      x_array, _ = get_x_array_for_prediction(all_data, args)
       y_predict = logistic_model(x_array, south_korea_a, south_korea_b, south_korea_c)
 
       if(lives_saved == 0):
         rmse = get_rmse(frac*logistic_model(test_set[args.name_cv_days], south_korea_a, south_korea_b, south_korea_c), frac*test_set[args.n_deaths_per_mil])
-        print('south korea rmse')
-        print(rmse)
         plt.plot(x_array,frac*y_predict, label = name + ': ' + str(round(frac/south_korea_a,2)) + ' RMSE: ' + str(rmse) , color = col_array[0], linewidth = linewidth)
         plt.scatter(x,frac*y, s = markersize, color = col_array[0])
 
   #Calculate Fit for other areas and compare to South Korea
   for i in range(len(area_object_list)):
     area = area_object_list[i]
+    all_data = area.cv_days_df_per_mil
     frac = 1
     if scaled == 0:
       frac = area.population/C
@@ -59,20 +57,18 @@ def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0, scaled  =
       #Fit logistic curve to data
       popt, pcov = curve_fit(logistic_model, x, y, p0=[5,20, 0.002*C], bounds=[[0,5,0.00001*C],[20,50,C]])
       a, b, c = popt[0], popt[1], popt[2]
-      #Create arrays for plotting
-      lastday = x.iloc[-1]
-      x_array = np.linspace(0,lastday + n_prediction_days,lastday + n_prediction_days+1)
-      lastentry = y.iloc[-1]
+      #Create arrays for plotting future if current behaviors continue
+      x_array, _ = get_x_array_for_prediction(all_data, args)
+      y_predict = logistic_model(x_array, a, b, c)
       #Calculate offset needed for south korea type future for every country and plot
+      lastday, lastentry = x.iloc[-1], y.iloc[-1]
       lastentry_sk = logistic_model(lastday, south_korea_a, south_korea_b, south_korea_c)
       offset = lastentry - lastentry_sk
-      x_sk_array = np.linspace(lastday, lastday + n_prediction_days, n_prediction_days + 1)
+      x_sk_array = np.linspace(lastday, lastday + args.days_of_cv_predict, args.days_of_cv_predict + 1)
       y_sk_predict = logistic_model(x_sk_array, south_korea_a, south_korea_b, south_korea_c) + offset
-      #Future if current behaviors continue
-      y_predict = logistic_model(x_array, a, b, c)
+
       if lives_saved == 0:
         rmse = get_rmse(frac*logistic_model(test_set[args.name_cv_days], a, b, c), frac*test_set[args.n_deaths_per_mil])
-        #rmse = round(math.sqrt(mean_squared_error(frac*logistic_model(x,a,b,c), frac*y)),2)
         plt.plot(x_array,frac*y_predict, label = name + ': '+ str(round(frac/a,2)) + ' RMSE: ' + str(rmse), color = col_array[i], linewidth = linewidth, linestyle = 'solid')
         plt.plot(x_sk_array, frac*y_sk_predict, color = col_array[i], linestyle = 'dashed', linewidth = linewidth)
         plt.scatter(x,frac*y, s = markersize, color = col_array[i])
@@ -325,12 +321,10 @@ def get_shifted_prediction(area_df, var, slope, intercept, best_growth_rate, arg
   #Return arrays for x, y_fitted_shifted, y_best_shifted
   last_predict_day = last_x + args.days_of_cv_predict
   x = np.linspace(last_x,last_predict_day, last_predict_day - last_x + 1)
-  x_all = np.linspace(0,last_x, last_x)
-  y_all = 10**((slope * x) + shifted_intercept)
   #Since inputs for y were log(y), convert back to y
   y = 10**((slope * x) + shifted_intercept)
   y_best = 10**((best_growth_rate *x) + best_shifted_intercept)
-  return x, y, y_best, y_all, shifted_intercept
+  return x, y, y_best, shifted_intercept, best_shifted_intercept
 
 def get_lives_saved_bar_chart(x_predict, y_predict, y_best, name, args, savename,scale):
   plt.close('all') 
@@ -351,21 +345,21 @@ def get_lives_saved_bar_chart(x_predict, y_predict, y_best, name, args, savename
   plt.text(0.02, 0.9, 'Current Projected Deaths: ' + str(round(y_predict[-1],1)), transform = plt.gca().transAxes)
   plt.text(0.02, 0.8, 'Best Case Projected Deaths: ' + str(round(y_best[-1],1)), transform = plt.gca().transAxes)
   plt.text(0.02, 0.7, 'Lives That Could Be Saved: ' + str(total_saved), transform = plt.gca().transAxes)
-  plt.savefig(args.output_dir + '/' + name + 'livessaved' + savename + '.png')
+  plt.savefig(args.output_dir + '/' + name + 'lives_saved' + savename + '.png')
 
 def plot(area_objects_list, args, plot_type, variables, scale_array):
   #Internal Variables
   covid_days = 'cv_days' #name of covid days variable in dataframes
   #Create Color Maps for plots based on plot_type
+  #col = plt.cm.jet(np.linspace(0,1,round(len(area_objects_list)/2)+5))
+  #if plot_type == 'raw_covid_days' or plot_type == 'per_mil_covid_days':
+  #  line_cycler = cycler('color', col,) * cycler('linestyle', ['-', ':'])
+  #elif plot_type == 'lives_saved_unmodified_covid_days':
+  #  line_cycler = cycler('color', col,) * cycler('linestyle', ['-', ':', '--'])
+  #else:
+  #line_cycler = cycler('color', col,)
+  #plt.rc('axes', prop_cycle = line_cycler)
   col = plt.cm.jet(np.linspace(0,1,round(len(area_objects_list)/2)+5))
-  if plot_type == 'raw_covid_days' or plot_type == 'per_mil_covid_days':
-    line_cycler = cycler('color', col,) * cycler('linestyle', ['-', ':'])
-  elif plot_type == 'lives_saved_unmodified_covid_days':
-    line_cycler = cycler('color', col,) * cycler('linestyle', ['-', ':', '--'])
-  else:
-    line_cycler = cycler('color', col,)
-  plt.rc('axes', prop_cycle = line_cycler)
-
   #Plot time series for variables
   for var in variables:
     #Iterate thru specified y-scales
@@ -373,36 +367,35 @@ def plot(area_objects_list, args, plot_type, variables, scale_array):
       #Iterate thru objects in area_objects_list (e.g. countries, states, counties)
       for i in range(len(area_objects_list)):
         area = area_objects_list[i]
-        #Don't plot NYC counties individually -- they're indentical due to NYT dataset structure
-        if area.fips in args.nyc_fips_to_skip: 
+        if area.fips in args.nyc_fips_to_skip: #Skip NYC duplicates, they're identical due to NYT dataset structure
           continue
-
         #Plot Raw data vs Date
         if plot_type == 'raw_dates': 
           area_df = area.df
-          plt.plot(area_df[args.date_name], area_df[var], label = area.name, linewidth = args.linewidth)
+          plt.plot(area_df[args.date_name], area_df[var], label = area.name, linewidth = args.linewidth, color = col[i])
           plt.xlabel(args.n_date_name)
           plt.ylabel(get_nice_var_name(var, args))
-
         #Plot Raw data vs outbreak days
         elif plot_type == 'raw_covid_days' or plot_type == 'lives_saved_raw_covid_days':
           all_data = area.cv_days_df_not_scaled
           train_set, test_set = get_train_test_sets(all_data, args)
           #Calculate max number of days to plot based on days_of_cv_predict
-          x_max = len(all_data.index.values) + args.days_of_cv_predict
-          x = np.linspace(0,x_max, x_max)
+          x, x_max = get_x_array_for_prediction(all_data, args)
           plt.xlim(0,x_max)
           #Fit log(var) and date to line
           model, log_intercept, log_slope, prediction, growth_rate = get_log_fit(train_set, covid_days, var, x)
          #Calculate fitted prediction with constraint that last point matches the last dataset value
-          x_predict, y_predict, y_best, y_all, shifted_intercept = get_shifted_prediction(train_set, var, log_slope, log_intercept, args.min_growth_rate, area.input_args)
+          x_predict, y_predict, y_best, shifted_intercept, shifted_intercept_best = get_shifted_prediction(train_set, var, log_slope, log_intercept, args.min_growth_rate, area.input_args)
+          y_all = 10**((log_slope * all_data[covid_days]) + shifted_intercept)
           y_test = 10**((log_slope * test_set[covid_days]) + shifted_intercept)
+          y_test_best = 10**((args.min_growth_rate * test_set[covid_days]) + shifted_intercept_best)
           test_rmse = get_rmse(y_test, test_set[var])
 
           #Plot Data and Prediction
           if plot_type == 'raw_covid_days':
-            plt.plot(all_data[covid_days], all_data[var], label = area.name + ':' + str(growth_rate) + ' RMSE: ' + str(test_rmse), linewidth = args.linewidth)
-            plt.plot(x_predict,y_predict)
+            plt.scatter(all_data[covid_days], all_data[var], label = area.name + ':' + str(growth_rate) + ' RMSE: ' + str(test_rmse), s = args.markersize, color = col[i])
+            plt.plot(all_data[covid_days], y_all, linestyle = 'solid', color = col[i])
+            plt.plot(test_set[covid_days],y_test_best, color = col[i], linestyle = 'dashed')
             plt.xlabel('Days since ' + str(args.cv_day_thres_notscaled) + ' Deaths')
             plt.ylabel(get_nice_var_name(var, args))
 
@@ -411,25 +404,30 @@ def plot(area_objects_list, args, plot_type, variables, scale_array):
             #Calculate Individual impact
             current_indiv_slope = (log_slope/area.population)
             improved_slope = log_slope - (current_indiv_slope - args.min_indiv_growth_rate)
-            x_predict, y_predict_indiv, y_best_indiv, y_all, shifted_intercept = get_shifted_prediction(train_set, var, log_slope, log_intercept, improved_slope, area.input_args)
+            x_predict, y_predict_indiv, y_best_indiv, shifted_intercept, shifted_intercept_best = get_shifted_prediction(train_set, var, log_slope, log_intercept, improved_slope, area.input_args)
             get_lives_saved_bar_chart(x_predict, y_predict_indiv, y_best_indiv, area.name, area.input_args, 'Individual', scale)
 
         #Plot var/1M vs outbreak days
         elif plot_type == 'per_mil_covid_days':
-          all_df = area.cv_days_df_per_mil
-          train_set, test_set = get_train_test_sets(all_df, args)
+          all_data = area.cv_days_df_per_mil
+          train_set, test_set = get_train_test_sets(all_data, args)
           #Get max number of cv outbreak days to determine plot limits
-          x_max = len(all_df.index.values) + args.days_of_cv_predict
-          x = np.linspace(0,x_max, x_max)
+          x, x_max = get_x_array_for_prediction(all_data, args)
           #Fit log(var)
           model, log_intercept, log_slope, prediction, growth_rate = get_log_fit(train_set, covid_days, var, x)
           #Calculate fitted prediction with constraint that last point matches the last dataset value
-          x_predict, y_predict, y_best, y_all, shifted_intercept = get_shifted_prediction(train_set, var, log_slope, log_intercept, args.min_growth_rate, area.input_args)
+          x_predict, y_predict, y_best, shifted_intercept, shifted_intercept_best = get_shifted_prediction(train_set, var, log_slope, log_intercept, args.min_growth_rate, area.input_args)
+          y_all = 10**((log_slope * all_data[covid_days]) + shifted_intercept)
           y_test = 10**((log_slope * test_set[covid_days]) + shifted_intercept)
+          y_test_best = 10**((args.min_growth_rate * test_set[covid_days]) + shifted_intercept_best)
           test_rmse = get_rmse(y_test, test_set[var])
           #Plot Data and Prediction
-          plt.plot(all_df.index.values, all_df[var], label = area.name + ':' + str(growth_rate) + ' RMSE: ' + str(test_rmse), linewidth = args.linewidth)
-          plt.plot(x_predict, y_predict)
+          plt.scatter(all_data[covid_days], all_data[var], label = area.name + ':' + str(growth_rate) + ' RMSE: ' + str(test_rmse), s = args.markersize, color = col[i])
+          plt.plot(all_data[covid_days], y_all, linestyle = 'solid', color = col[i])
+          plt.plot(test_set[covid_days],y_test_best, color = col[i], linestyle = 'dashed')
+
+          #plt.plot(all_df.index.values, all_df[var], label = area.name + ':' + str(growth_rate) + ' RMSE: ' + str(test_rmse), linewidth = args.linewidth)
+          #plt.plot(x_predict, y_predict)
           plt.xlabel('Days since 1 ' + get_nice_var_name(var, args))
           plt.ylabel(get_nice_var_name(var, args))
 
@@ -507,3 +505,7 @@ def get_log_fit(train_set, covid_days, var, x):
 
 def get_rmse(model, data):
   return round(math.sqrt(mean_squared_error(model, data)))
+
+def get_x_array_for_prediction(dataframe, args):
+  x_max = len(dataframe.index.values) + args.days_of_cv_predict
+  return np.linspace(0,x_max, x_max), x_max
