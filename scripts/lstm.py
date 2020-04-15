@@ -4,13 +4,11 @@ def lstm_combined(area_obj_list, args):
   print('hi')
 
 def lstm(area, args):
-  print('---------------------LSTM----------')
-  #HARDCODED THINGS TO FIX LATER
+  #Hard-coded Variables to be fixed
   np.random.seed(7)
   df = area.cv_days_df_not_scaled
-  print(df.dtypes)
   number_of_test_dfs = -10 #number of days to keep for testing
-  percent_train_df = 0.90
+  percent_train_df = args.train_set_percentage
   min_entries_df = 5
   train_length = 60
   predict_var = 'total_deaths'
@@ -64,11 +62,11 @@ def lstm(area, args):
   final_train_Y = final_train_Y.reshape(-1,1)
   final_test_Y = final_test_Y.reshape(-1,1)
 
-  #Hyperparamters
+  #LSTM Hyperparamters
   n_neurons = 1
   neuron_array = [1]
   dropout = 0.2
-  epochs = 30
+  epochs = 1000
   repeats = 1
   #Test epoch size vs RMSE
   for i in range(repeats):
@@ -90,7 +88,7 @@ def lstm(area, args):
   plt.xlabel('Epoch')
   plt.ylabel('RMSE')
   plt.legend()
-  plt.savefig(args.output_dir + '/' + area.name + '_epoch_rmse.pdf')
+  plt.savefig(args.output_dir + '/' + area.name + '_epoch_rmse.png')
 
   #Design Network
   model = Sequential()
@@ -125,7 +123,7 @@ def lstm(area, args):
   plt.xlabel('Date')
   plt.xticks(fontsize = args.tick_font_size)
   plt.legend()
-  plt.savefig(args.output_dir + '/' + area.name + '_lstm_realdays.pdf')
+  plt.savefig(args.output_dir + '/' + area.name + '_lstm_realdays.png')
   plt.close('all')
 
 def get_days(scaler, data, args):
