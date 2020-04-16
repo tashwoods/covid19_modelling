@@ -38,6 +38,7 @@ if __name__ == '__main__':
   parser.add_argument('-name_new_cases', '--name_new_cases', type = str, dest = 'name_new_cases', default = 'new_cases', help = 'name of variable in country level file for new cases per day')
   parser.add_argument('-name_new_deaths', '--name_new_deaths', type = str, dest = 'name_new_deaths', default = 'new_deaths', help = 'name of variable in country level file for new deaths per day')
   parser.add_argument('-name_cv_days', '--name_cv_days', type = str, dest = 'name_cv_days', default = 'cv_days', help = 'name of cv outbreak days')
+  parser.add_argument('-min_entries_df_lstm', '--min_entries_df_lstm', type = int, dest = 'min_entries_df_lstm', default = 5, help = 'number of entries required in dataframe for it to be considered a sample for the lstm')
   parser.add_argument('-predict_var', '--predict_var', type = str, dest = 'predict_var', default = 'total_deaths', help = 'number of variable used to determine where to start counting cv days, should be whichever variable in your dataset you believe is the most accurate')
   parser.add_argument('-name_fips', '--name_fips', type = str, dest = 'name_fips', default = 'fips', help = 'name of fips variable in input data')
   #Specify output and analysis variables---------------------------------------------------------------
@@ -51,6 +52,8 @@ if __name__ == '__main__':
   #Analysis Variables
   parser.add_argument('-train_set_percent', '--train_set_percent', type = int, dest = 'train_set_percentage', default = 0.8, help = 'percentage of data to use for train set')
   parser.add_argument('-cv_day_thres', '--cv_day_thres', type = int, dest = 'cv_day_thres', default = 1000000, help = 'total number of cases to consider it the first day of cv19')
+  parser.add_argument('-lstm_seq_length', '--lstm_seq_length', type = int, dest = 'lstm_seq_length', default = 100, help = 'length of lstm sequences. Sequences shorter than this will be padded to specified length')
+  parser.add_argument('-mask_value_lstm', '--mask_value_lstm', type = int, dest = 'mask_value_lstm', default = -100, help = 'value to apply to nan/bad values in lstm sequence so they are ignored/masked in training. For some reason leaving them as nan does not end well')
   parser.add_argument('-cv_day_thres_notscaled', '--cv_day_thres_notscaled', type = int, dest = 'cv_day_thres_notscaled', default = 10, help = 'minimum number of deaths to start counting CV days from for unscaled data')
   parser.add_argument('-n_deaths_per_mil', '--n_deaths_per_mil', type = str, dest = 'n_deaths_per_mil', default = 'deaths_per_mil', help = 'name of deaths_per_mil variable')
   parser.add_argument('-population_density_name', '--population_density_name', type = str, dest = 'population_density_name', default = 'population_density', help = 'name of variable for population density in dataframes')
@@ -61,7 +64,7 @@ if __name__ == '__main__':
   parser.add_argument('-plot_y_scale', '--plot_y_scale', type = str, dest = 'plot_y_scale', default = 'log', help = 'scale for y axis, set to linear, log, etc')
   parser.add_argument('-linewidth', '--linewidth', type = int, dest = 'linewidth', default = 1, help = 'width of lines for plots')
   parser.add_argument('-markersize', '--markersize', type = int, dest = 'markersize', default = 3, help = 'size of markers to use in scatter plots')
-  parser.add_argument('-days_of_cv_predict', '--days_of_cv_predict', type = int, dest = 'days_of_cv_predict', default = 1, help = 'number of days past last date in dataset to predict cv trends')
+  parser.add_argument('-days_of_cv_predict', '--days_of_cv_predict', type = int, dest = 'days_of_cv_predict', default = 2, help = 'number of days past last date in dataset to predict cv trends')
   parser.add_argument('-min_growth_rate', '--min_growth_rate', type = float, dest = 'min_growth_rate', default = 0.0293838, help = 'min growth rate to compare to') #0.0357 absolute best
   parser.add_argument('-dc_land_area', '--dc_land_area', type = float, dest = 'dc_land_area', default = 68.34, help = 'land area of DC')
   parser.add_argument('-min_indiv_growth_rate', '--min_indiv_growth_rate', type = float, dest = 'min_indiv_growth_rate', default = 7.6595717E-10, help = 'minimum individual contribution to growth rate')
@@ -295,6 +298,6 @@ if(args.do_lstm == 1):
   for i in range(len(area_obj_list)):
     if area_obj_list[i].name == 'Los Angeles':
       #seq_lstm(area_obj_list[i], args)
-      lstm(area_obj_list[i], args)
+      lstm(area_obj_list[i], args, 1)
       #new_lstm(area_obj_list[0], args)
 

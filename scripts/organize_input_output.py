@@ -1,5 +1,135 @@
 from imported_libraries import *
 
+def daterange(start_date, end_date):
+  for n in range(int((end_date - start_date).days)):
+    yield start_date + timedelta(n)
+
+def get_days(scaler, data, args):
+  days = list()
+  date_format = '%Y-%m-%d'
+  start_date = datetime.strptime(args.days_to_count_from_lstm, date_format) 
+  for i in range(len(data)):
+    X_train = scaler.inverse_transform(data[i])
+    X_train = X_train[:,0]
+    X_train = round(X_train[-1],0) + 1
+    date = start_date + timedelta(X_train -1)
+    days.append(date)
+
+  return days
+
+def get_X_Y(df, args, seq_output = 0, X_scaler=0, Y_scaler=0):
+  print('getting X and Y')
+  print(seq_output)
+  if seq_output == 0: #predicting one day
+    X = df.iloc[:-1,:] #X is everything except the last row
+    if X_scaler != 0 and Y_scaler != 0:
+      #Y is the predict var in the last row
+      Y = df[args.predict_var].iloc[-1]
+      Y = Y.reshape(1,-1)
+      #Standardize X and Y
+      scaled_X = X_scaler.transform(X)
+      scaled_Y = Y_scaler.transform(Y)
+      #Pad X matrices to have same length
+      n_rows_X = scaled_X.shape[0]
+      n_rows_to_add = args.lstm_seq_length - n_rows_X
+      pad_rows = np.empty((n_rows_to_add, scaled_X.shape[1]), float)
+      pad_rows[:] = args.mask_value_lstm
+      padded_scaled_X = np.concatenate((pad_rows, scaled_X))
+      return padded_scaled_X, scaled_Y
+    else:
+      #Allow Y scaler to scale all Y train values, scaling only one does not work
+      Y = df[[args.predict_var]]
+      return X, Y 
+  else: #Predict Sequence
+    print('seq get X Y')
+    print('full df')
+    print(df)
+    train = df.iloc[:-args.days_of_cv_predict,:] #exclude last n entries of df to use for prediction
+    test = df.iloc[-args.days_of_cv_predict:,:]
+    print('train')
+    print(train)
+    print('test')
+    print(test)
+    test = test[args.predict_var].to_numpy().reshape(1,-1)
+
+    if X_scaler != 0 and Y_scaler != 0:
+      Y = df[args.predict_var]
+      #Standardize X and Y
+      scaled_X = X_scaler.transform(train)
+      scaled_Y = Y_scaler.transform(test)
+      #Pad X matrices to have same length
+      n_rows_X = scaled_X.shape[0]
+      n_rows_to_add = args.lstm_seq_length - n_rows_X
+      pad_rows = np.empty((n_rows_to_add, scaled_X.shape[1]), float)
+      pad_rows[:] = args.mask_value_lstm
+      padded_scaled_X = np.concatenate((pad_rows, scaled_X))
+      return padded_scaled_X, scaled_Y
+    else:
+      return train, test
+
+def get_2020_days_array(df, args):
+  date_format = '%Y-%m-%d'
+  start_date = datetime.strptime(args.days_to_count_from_lstm, date_format) 
+  df = df.astype({'date': str})
+  date_array = [(datetime.strptime(i, date_format) - start_date).days for i in df['date'] ]
+  return date_array
+
+
+
+
+
+
+
+def simple_get_first_cv_day(country, population, args):
+  cv_thres_per_mil = population*(1/args.cv_day_thres) #will give first day that one in cv_day_thres people in country affected via predict var
+  cv_thres_not_scaled = args.cv_day_thres_notscaled
+
+  truncated_list_per_mil = country[country[args.predict_var] > cv_thres_per_mil]
+  truncated_list_not_scaled = country[country[args.predict_var] > cv_thres_not_scaled]
+
+  first_index_per_mil = -1
+  first_index_not_scaled = -1
+  if len(truncated_list_per_mil) > 0:
+    first_cv_day = truncated_list_per_mil.iloc[0].name
+    first_index_per_mil = country.index.get_loc(first_cv_day)
+  if len(truncated_list_not_scaled) > 0:
+    first_cv_day = truncated_list_not_scaled.iloc[0].name
+    first_index_not_scaled = country.index.get_loc(first_cv_day)
+  return first_index_per_mil, first_index_not_scaled
+
+def get_first_cv_day(country_object, scale):
+  args = country_object.input_args
+  country = country_object.df
+  population = country_object.population
+  if scale == 'scaled':
+    cv_thres = population*(1/args.cv_day_thres) #will give first day that one in cv_day_thres people in country affected via predict var
+  elif scale == 'notscaled':
+    cv_thres = args.cv_day_thres_notscaled
+  else:
+    print('Set threshold for number of {} that starts COVID Outbreak Day'.format(args.predict_var))
+    exit()
+  truncated_list = country[country[args.predict_var] > cv_thres]
+  if len(truncated_list) > 0:
+    first_cv_day = truncated_list.iloc[0].name
+    first_index = country.index.get_loc(first_cv_day)
+    return(first_index)
+  else:
+    print('trunchated list empty')
+    return(-1)
+
+def get_train_test_sets(df, args, lstm = 0):
+  if lstm == 0:
+    train_set_length = int(len(df.index)*args.train_set_percentage)
+    train_set = df[:train_set_length]
+    test_set = df[train_set_length:]
+  else: #input is a list of dataframes for lstm
+    train_set_length = int(len(df)*args.train_set_percentage)
+    train_set = df[:train_set_length + 1]
+    test_set = df[train_set_length:]
+  return train_set, test_set
+
+
+
 def get_population(area, pop_df, region_name, pop_name, state = -1):
   area_df = pop_df.loc[pop_df[region_name]== area]
   if state != -1:
@@ -87,14 +217,6 @@ def make_test_train_datasets(file_name, args):
   test_set_unscaled = test_set_unscaled.sort_values(by = args.date_name)
   
   return test_set_unscaled, train_set_unscaled, formatted_data_unscaled
-
-def get_stock_name(file_name):
-  if file_name.endswith('.us.txt'):
-    if '/' in file_name:
-      file_name=file_name[file_name.rfind('/')+1:-7].upper()
-    else:
-      file_name=file_name[:-7].upper()
-  return file_name
 
 def get_data(file_name, date_name):
   #reformat date from Y-M-D to Y.day/365

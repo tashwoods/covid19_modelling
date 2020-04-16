@@ -1,8 +1,6 @@
 from imported_libraries import *
 
-def daterange(start_date, end_date):
-  for n in range(int((end_date - start_date).days)):
-    yield start_date + timedelta(n)
+
 
 def logistic_model(x,a,b,c):
   return c/(1+np.exp(-(x-b)/a))
@@ -247,8 +245,6 @@ def make_gif_cv_days(area_obj_list, dataframe_name, var, ndays, args, thisvmax =
     pd.set_option('display.max_rows', None)
     this_variable_max_array.append(np.nanpercentile(df[var], 10))
   vmax = max(this_variable_max_array)
-  print('VMAXXX')
-  print(vmax)
   vmax = thisvmax
 
   #Create jpegs for each day to be combined later into gifs
@@ -350,15 +346,6 @@ def get_lives_saved_bar_chart(x_predict, y_predict, y_best, name, args, savename
 def plot(area_objects_list, args, plot_type, variables, scale_array):
   #Internal Variables
   covid_days = 'cv_days' #name of covid days variable in dataframes
-  #Create Color Maps for plots based on plot_type
-  #col = plt.cm.jet(np.linspace(0,1,round(len(area_objects_list)/2)+5))
-  #if plot_type == 'raw_covid_days' or plot_type == 'per_mil_covid_days':
-  #  line_cycler = cycler('color', col,) * cycler('linestyle', ['-', ':'])
-  #elif plot_type == 'lives_saved_unmodified_covid_days':
-  #  line_cycler = cycler('color', col,) * cycler('linestyle', ['-', ':', '--'])
-  #else:
-  #line_cycler = cycler('color', col,)
-  #plt.rc('axes', prop_cycle = line_cycler)
   col = plt.cm.jet(np.linspace(0,1,round(len(area_objects_list)/2)+5))
   #Plot time series for variables
   for var in variables:
@@ -450,49 +437,6 @@ def plot(area_objects_list, args, plot_type, variables, scale_array):
       plt.xticks(fontsize = args.tick_font_size)
       plt.savefig(args.output_dir + '/' + var + '_' + plot_type + '_' + scale + '.png')
       plt.close('all')
-
-def simple_get_first_cv_day(country, population, args):
-  cv_thres_per_mil = population*(1/args.cv_day_thres) #will give first day that one in cv_day_thres people in country affected via predict var
-  cv_thres_not_scaled = args.cv_day_thres_notscaled
-
-  truncated_list_per_mil = country[country[args.predict_var] > cv_thres_per_mil]
-  truncated_list_not_scaled = country[country[args.predict_var] > cv_thres_not_scaled]
-
-  first_index_per_mil = -1
-  first_index_not_scaled = -1
-  if len(truncated_list_per_mil) > 0:
-    first_cv_day = truncated_list_per_mil.iloc[0].name
-    first_index_per_mil = country.index.get_loc(first_cv_day)
-  if len(truncated_list_not_scaled) > 0:
-    first_cv_day = truncated_list_not_scaled.iloc[0].name
-    first_index_not_scaled = country.index.get_loc(first_cv_day)
-  return first_index_per_mil, first_index_not_scaled
-
-def get_first_cv_day(country_object, scale):
-  args = country_object.input_args
-  country = country_object.df
-  population = country_object.population
-  if scale == 'scaled':
-    cv_thres = population*(1/args.cv_day_thres) #will give first day that one in cv_day_thres people in country affected via predict var
-  elif scale == 'notscaled':
-    cv_thres = args.cv_day_thres_notscaled
-  else:
-    print('Set threshold for number of {} that starts COVID Outbreak Day'.format(args.predict_var))
-    exit()
-  truncated_list = country[country[args.predict_var] > cv_thres]
-  if len(truncated_list) > 0:
-    first_cv_day = truncated_list.iloc[0].name
-    first_index = country.index.get_loc(first_cv_day)
-    return(first_index)
-  else:
-    print('trunchated list empty')
-    return(-1)
-
-def get_train_test_sets(df, args):
-  train_set_length = int(len(df.index)*args.train_set_percentage)
-  train_set = df[:train_set_length]
-  test_set = df[train_set_length:]
-  return train_set, test_set
 
 def get_log_fit(train_set, covid_days, var, x):
   model = np.poly1d(np.polyfit(train_set[covid_days], np.log10(train_set[var]),1))

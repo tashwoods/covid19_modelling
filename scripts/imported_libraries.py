@@ -43,10 +43,11 @@ from scipy.optimize import fsolve #to solve logistic curve for infection end dat
 
 #For LSTM based on https://machinelearningmastery.com/time-series-prediction-lstm-recurrent-neural-networks-python-keras/
 from keras.models import Sequential
-from keras.layers import Dense
-from keras.layers import LSTM
+#from keras.layers import Dense, L
+#from keras.layers import LSTM
 from keras.layers import *
 from sklearn.preprocessing import MinMaxScaler
+from keras.preprocessing.sequence import TimeseriesGenerator
 ########
 from keras.preprocessing.sequence import pad_sequences
 import tensorflow as tf
