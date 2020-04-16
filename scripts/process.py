@@ -57,11 +57,11 @@ if __name__ == '__main__':
   parser.add_argument('-nyc_fips', '--nyc_fips', type = list, dest = 'nyc_fips', default = [36005, 36047, 36061, 36081, 36085], help = 'list of NYC fips')
   parser.add_argument('-nyc_fips_to_skip', '--nyc_fips_to_skip', type = list, dest = 'nyc_fips_to_skip', default = [36047, 36061, 36081, 36085], help = 'list of NYC fips to skip')
   #Aesthetics : )
-  parser.add_argument('-tick_font_size', '--tick_font_size', type = int, dest = 'tick_font_size', default = 6, help = 'size of tick labels in plots')
+  parser.add_argument('-tick_font_size', '--tick_font_size', type = int, dest = 'tick_font_size', default = 4.5, help = 'size of tick labels in plots')
   parser.add_argument('-plot_y_scale', '--plot_y_scale', type = str, dest = 'plot_y_scale', default = 'log', help = 'scale for y axis, set to linear, log, etc')
   parser.add_argument('-linewidth', '--linewidth', type = int, dest = 'linewidth', default = 1, help = 'width of lines for plots')
   parser.add_argument('-markersize', '--markersize', type = int, dest = 'markersize', default = 3, help = 'size of markers to use in scatter plots')
-  parser.add_argument('-days_of_cv_predict', '--days_of_cv_predict', type = int, dest = 'days_of_cv_predict', default = 10, help = 'number of days past last date in dataset to predict cv trends')
+  parser.add_argument('-days_of_cv_predict', '--days_of_cv_predict', type = int, dest = 'days_of_cv_predict', default = 1, help = 'number of days past last date in dataset to predict cv trends')
   parser.add_argument('-min_growth_rate', '--min_growth_rate', type = float, dest = 'min_growth_rate', default = 0.0293838, help = 'min growth rate to compare to') #0.0357 absolute best
   parser.add_argument('-dc_land_area', '--dc_land_area', type = float, dest = 'dc_land_area', default = 68.34, help = 'land area of DC')
   parser.add_argument('-min_indiv_growth_rate', '--min_indiv_growth_rate', type = float, dest = 'min_indiv_growth_rate', default = 7.6595717E-10, help = 'minimum individual contribution to growth rate')
@@ -294,6 +294,7 @@ if(args.do_lstm == 1):
   #lstm_combined(area_obj_list[0], args)
   for i in range(len(area_obj_list)):
     if area_obj_list[i].name == 'Los Angeles':
+      #seq_lstm(area_obj_list[i], args)
       lstm(area_obj_list[i], args)
       #new_lstm(area_obj_list[0], args)
 

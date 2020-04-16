@@ -1,36 +1,44 @@
 from imported_libraries import *
 
-def lstm_combined(area_obj_list, args):
+def lstm_combined(df, args):
   print('hi')
+  print('df')
+
+def seq_lstm(area, args):
+  print('starting sequential lstm')
+  #Make train and test sets:
+
+def get_2020_days_array(df, args):
+  date_format = '%Y-%m-%d'
+  start_date = datetime.strptime(args.days_to_count_from_lstm, date_format) 
+  df = df.astype({'date': str})
+  date_array = [(datetime.strptime(i, date_format) - start_date).days for i in df['date'] ]
+  return date_array
 
 def lstm(area, args):
   #Hard-coded Variables to be fixed
   np.random.seed(7)
   df = area.cv_days_df_not_scaled
-  number_of_test_dfs = -10 #number of days to keep for testing
   percent_train_df = args.train_set_percentage
   min_entries_df = 5
   train_length = 60
   predict_var = 'total_deaths'
 
   #Convert Y-M-D to corresponding day in 2020 (e.g. Jan 2 2020 = day 2 of 2020, Dec 31 is day -1 of 2020, format needed for LSTM)
-  date_format = '%Y-%m-%d'
-  start_date = datetime.strptime(args.days_to_count_from_lstm, date_format) 
-  df = df.astype({'date': str})
-  df['days'] = [(datetime.strptime(i, date_format) - start_date).days for i in df['date'] ]
+  df['days'] = get_2020_days_array(df, args)
   df = df[['days', 'new_cases', 'new_deaths', 'total_cases', 'total_deaths']]
+  print(df)
 
   #create dataframe lists
   df_list = list()
   for i in range(len(df.index)):
     if i < min_entries_df: #only keep df if it has min number of entries
       continue
-    df_list.append(df[0:i]) #here could also create week and month predictions
-    this_df = df[0:i]
+    df_list.append(df[0:i+args.days_of_cv_predict]) #here could also create week and month predictions
 
   #Split into train and test sets
   train_set_length = int(len(df_list)*percent_train_df)
-  train_set = df_list[:train_set_length]
+  train_set = df_list[:train_set_length + 1]
   test_set = df_list[train_set_length:]
   #Scale datasets based on last train set 
   scaling_set = train_set[-1]
@@ -66,7 +74,7 @@ def lstm(area, args):
   n_neurons = 1
   neuron_array = [1]
   dropout = 0.2
-  epochs = 1000
+  epochs = 100
   repeats = 1
   #Test epoch size vs RMSE
   for i in range(repeats):
@@ -108,16 +116,19 @@ def lstm(area, args):
   x_array_train = get_days(X_scaler, final_train_X, args)
   x_array_test = get_days(X_scaler, final_test_X, args)
 
-  markersize = 3
-  print('natasha')
-  print(type(y_test_actual))
   all_predict = np.concatenate((y_train_predict, y_test_predict), axis = 0)
   all_data = np.concatenate((y_train_actual, y_test_actual), axis = 0)
-  rmse = math.sqrt(mean_squared_error(all_predict, all_data))
+  #rmse = math.sqrt(mean_squared_error(all_predict, all_data))
+
+  rmse = get_rmse(y_test_predict, y_test_actual)
+  print('here')
+  print(y_test_predict)
+  print(y_test_actual)
+  print(rmse)
   plt.plot(x_array_train, y_train_predict, color = 'orange', label = 'LSTM: ' + str(round(rmse,2)))
   plt.plot(x_array_test, y_test_predict, color = 'orange')
-  plt.plot(x_array_train, y_train_actual, 'bo-', label = 'Train Set', markersize = markersize)
-  plt.plot(x_array_test, y_test_actual, 'go-', label = 'Test Set', markersize = markersize)
+  plt.plot(x_array_train, y_train_actual, 'bo-', label = 'Train Set', markersize = args.markersize)
+  plt.plot(x_array_test, y_test_actual, 'go-', label = 'Test Set', markersize = args.markersize)
   plt.title(area.name)
   plt.ylabel('Total Deaths')
   plt.xlabel('Date')
