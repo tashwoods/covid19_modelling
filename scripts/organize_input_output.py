@@ -18,8 +18,6 @@ def get_days(scaler, data, args):
   return days
 
 def get_X_Y(df, args, seq_output = 0, X_scaler=0, Y_scaler=0):
-  print('getting X and Y')
-  print(seq_output)
   if seq_output == 0: #predicting one day
     X = df.iloc[:-1,:] #X is everything except the last row
     if X_scaler != 0 and Y_scaler != 0:
@@ -41,30 +39,37 @@ def get_X_Y(df, args, seq_output = 0, X_scaler=0, Y_scaler=0):
       Y = df[[args.predict_var]]
       return X, Y 
   else: #Predict Sequence
-    print('seq get X Y')
-    print('full df')
-    print(df)
+    #print('getting seq')
+    #print(df)
     train = df.iloc[:-args.days_of_cv_predict,:] #exclude last n entries of df to use for prediction
     test = df.iloc[-args.days_of_cv_predict:,:]
-    print('train')
-    print(train)
-    print('test')
-    print(test)
-    test = test[args.predict_var].to_numpy().reshape(1,-1)
+    test = test[args.predict_var].to_numpy()
+    test = pd.DataFrame(data = test)
 
     if X_scaler != 0 and Y_scaler != 0:
       Y = df[args.predict_var]
       #Standardize X and Y
       scaled_X = X_scaler.transform(train)
       scaled_Y = Y_scaler.transform(test)
+      #print(scaled_X)
+      #print(scaled_Y)
       #Pad X matrices to have same length
       n_rows_X = scaled_X.shape[0]
       n_rows_to_add = args.lstm_seq_length - n_rows_X
       pad_rows = np.empty((n_rows_to_add, scaled_X.shape[1]), float)
       pad_rows[:] = args.mask_value_lstm
       padded_scaled_X = np.concatenate((pad_rows, scaled_X))
+      #padded_scaled_X = scaled_X #fix this
       return padded_scaled_X, scaled_Y
     else:
+      test.iloc[0] = [0]
+      test.iloc[-1] = args.max_scaling_lstm*test[0].max() #THIS IS REALLY IMPORTANT NATASHA AND YOU SHOULD THINK ABOUT THIS MORE
+      test = pd.DataFrame(data = test)
+      #print(train.dtypes)
+      #print(train)
+      #for i in args.lstm_var:
+      #  train[i] = args.max_scaling_lstm*train[i]
+      #print(train)
       return train, test
 
 def get_2020_days_array(df, args):

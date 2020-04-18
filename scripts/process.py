@@ -39,6 +39,8 @@ if __name__ == '__main__':
   parser.add_argument('-name_new_deaths', '--name_new_deaths', type = str, dest = 'name_new_deaths', default = 'new_deaths', help = 'name of variable in country level file for new deaths per day')
   parser.add_argument('-name_cv_days', '--name_cv_days', type = str, dest = 'name_cv_days', default = 'cv_days', help = 'name of cv outbreak days')
   parser.add_argument('-min_entries_df_lstm', '--min_entries_df_lstm', type = int, dest = 'min_entries_df_lstm', default = 5, help = 'number of entries required in dataframe for it to be considered a sample for the lstm')
+  parser.add_argument('-lstm_var', '--lstm_var', type = list, default = ['new_cases', 'new_deaths', 'total_cases', 'total_deaths'], help = 'variables for lstm to use')
+  parser.add_argument('-max_scaling_lstm', '--max_scaling_lstm', type = float, dest = 'max_scaling_lstm', default = 2.0, help = 'how much to multiply max of predict var for lstm prediction so train set can cover test set')
   parser.add_argument('-predict_var', '--predict_var', type = str, dest = 'predict_var', default = 'total_deaths', help = 'number of variable used to determine where to start counting cv days, should be whichever variable in your dataset you believe is the most accurate')
   parser.add_argument('-name_fips', '--name_fips', type = str, dest = 'name_fips', default = 'fips', help = 'name of fips variable in input data')
   #Specify output and analysis variables---------------------------------------------------------------
@@ -64,7 +66,7 @@ if __name__ == '__main__':
   parser.add_argument('-plot_y_scale', '--plot_y_scale', type = str, dest = 'plot_y_scale', default = 'log', help = 'scale for y axis, set to linear, log, etc')
   parser.add_argument('-linewidth', '--linewidth', type = int, dest = 'linewidth', default = 1, help = 'width of lines for plots')
   parser.add_argument('-markersize', '--markersize', type = int, dest = 'markersize', default = 3, help = 'size of markers to use in scatter plots')
-  parser.add_argument('-days_of_cv_predict', '--days_of_cv_predict', type = int, dest = 'days_of_cv_predict', default = 2, help = 'number of days past last date in dataset to predict cv trends')
+  parser.add_argument('-days_of_cv_predict', '--days_of_cv_predict', type = int, dest = 'days_of_cv_predict', default = 5, help = 'number of days past last date in dataset to predict cv trends')
   parser.add_argument('-min_growth_rate', '--min_growth_rate', type = float, dest = 'min_growth_rate', default = 0.0293838, help = 'min growth rate to compare to') #0.0357 absolute best
   parser.add_argument('-dc_land_area', '--dc_land_area', type = float, dest = 'dc_land_area', default = 68.34, help = 'land area of DC')
   parser.add_argument('-min_indiv_growth_rate', '--min_indiv_growth_rate', type = float, dest = 'min_indiv_growth_rate', default = 7.6595717E-10, help = 'minimum individual contribution to growth rate')
