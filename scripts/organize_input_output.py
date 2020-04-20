@@ -62,14 +62,16 @@ def get_X_Y(df, args, seq_output = 0, X_scaler=0, Y_scaler=0):
       #padded_scaled_X = scaled_X #fix this
       return padded_scaled_X, scaled_Y
     else:
+      #Set min values of inputs to zero and maxes to max_Scaling_lstm*max
+      #Test Set
       test.iloc[0] = [0]
       test.iloc[-1] = args.max_scaling_lstm*test[0].max() #THIS IS REALLY IMPORTANT NATASHA AND YOU SHOULD THINK ABOUT THIS MORE
       test = pd.DataFrame(data = test)
-      #print(train.dtypes)
-      #print(train)
-      #for i in args.lstm_var:
-      #  train[i] = args.max_scaling_lstm*train[i]
-      #print(train)
+      #Train Set
+      train.loc[len(train)] = 0
+      train.loc[len(train)] = args.max_scaling_lstm*train.max()
+      train = train.sort_values(args.name_cv_days)
+      train = train.reset_index(drop=True)
       return train, test
 
 def get_2020_days_array(df, args):

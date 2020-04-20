@@ -96,12 +96,25 @@ def lstm(area, args, seq_output = 0):
   #Scale train and test sets and split into X and Y
   scaling_set = train_set[-1]
   scaling_set_X, scaling_set_Y = get_X_Y(scaling_set, args, seq_output) #0 specifies we are predicting one value not sequence
+  np.set_printoptions(suppress=True)
+
   print('scaling sets')
   print(scaling_set_X)
   print(scaling_set_Y)
 
 
   X_scaler, Y_scaler = get_X_Y_scaler(scaling_set_X, scaling_set_Y)
+  print('scaling set X unscaled')
+  print(X_scaler.transform(scaling_set_X))
+  print(X_scaler.inverse_transform(X_scaler.transform(scaling_set_X)))
+
+  print(Y_scaler.transform(scaling_set_Y))
+  print(scaling_set_Y)
+  print(Y_scaler.inverse_transform(Y_scaler.transform(scaling_set_Y)))
+  
+  exit()
+
+    
 
 
   final_train_X, final_train_Y, final_test_X, final_test_Y = get_X_Y_test_train_scaled(X_scaler, Y_scaler, train_set, test_set, args, seq_output)
@@ -109,13 +122,17 @@ def lstm(area, args, seq_output = 0):
 
   #Design Network
   print('checking test and train arrays')
-  print(final_train_X)
+  print('train X')
+  print(X_scaler.inverse_transform(final_train_X))
   print(final_train_X.shape)
-  print(final_train_Y)
+  print('train Y')
+  print(Y_scaler.inverse_transform(final_train_Y))
   print(final_train_Y.shape)
 
+  print('test X')
   print(final_test_X)
   print(final_test_X.shape)
+  print('test Y')
   print(final_test_Y)
   print(final_test_Y.shape)
   hidden_layer_dimensions = 100
