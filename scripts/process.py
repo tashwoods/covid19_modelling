@@ -54,7 +54,7 @@ if __name__ == '__main__':
   #Analysis Variables
   parser.add_argument('-train_set_percent', '--train_set_percent', type = int, dest = 'train_set_percentage', default = 0.8, help = 'percentage of data to use for train set')
   parser.add_argument('-cv_day_thres', '--cv_day_thres', type = int, dest = 'cv_day_thres', default = 1000000, help = 'total number of cases to consider it the first day of cv19')
-  parser.add_argument('-lstm_seq_length', '--lstm_seq_length', type = int, dest = 'lstm_seq_length', default = 100, help = 'length of lstm sequences. Sequences shorter than this will be padded to specified length')
+  parser.add_argument('-lstm_seq_length', '--lstm_seq_length', type = int, dest = 'lstm_seq_length', default = 24, help = 'length of lstm sequences. Sequences shorter than this will be padded to specified length')
   parser.add_argument('-mask_value_lstm', '--mask_value_lstm', type = int, dest = 'mask_value_lstm', default = -100, help = 'value to apply to nan/bad values in lstm sequence so they are ignored/masked in training. For some reason leaving them as nan does not end well')
   parser.add_argument('-cv_day_thres_notscaled', '--cv_day_thres_notscaled', type = int, dest = 'cv_day_thres_notscaled', default = 10, help = 'minimum number of deaths to start counting CV days from for unscaled data')
   parser.add_argument('-n_deaths_per_mil', '--n_deaths_per_mil', type = str, dest = 'n_deaths_per_mil', default = 'deaths_per_mil', help = 'name of deaths_per_mil variable')

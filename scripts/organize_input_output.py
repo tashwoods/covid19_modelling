@@ -39,13 +39,20 @@ def get_X_Y(df, args, seq_output = 0, X_scaler=0, Y_scaler=0):
       Y = df[[args.predict_var]]
       return X, Y 
   else: #Predict Sequence
-    #print('getting seq')
-    #print(df)
     train = df.iloc[:-args.days_of_cv_predict,:] #exclude last n entries of df to use for prediction
+
     test = df.iloc[-args.days_of_cv_predict:,:]
     test = test[args.predict_var].to_numpy()
     test = pd.DataFrame(data = test)
 
+    '''
+    print('getting seq')
+    print(df)
+    print('train')
+    print(train)
+    print('test')
+    print(test)
+    '''
     if X_scaler != 0 and Y_scaler != 0:
       Y = df[args.predict_var]
       #Standardize X and Y
@@ -64,7 +71,7 @@ def get_X_Y(df, args, seq_output = 0, X_scaler=0, Y_scaler=0):
     else:
       #Set min values of inputs to zero and maxes to max_Scaling_lstm*max
       #Test Set
-      test.iloc[0] = [0]
+      test.iloc[0] = [0] #this changes the value in df!!! Be careful with copies!
       test.iloc[-1] = args.max_scaling_lstm*test[0].max() #THIS IS REALLY IMPORTANT NATASHA AND YOU SHOULD THINK ABOUT THIS MORE
       test = pd.DataFrame(data = test)
       #Train Set
@@ -72,6 +79,8 @@ def get_X_Y(df, args, seq_output = 0, X_scaler=0, Y_scaler=0):
       train.loc[len(train)] = args.max_scaling_lstm*train.max()
       train = train.sort_values(args.name_cv_days)
       train = train.reset_index(drop=True)
+      print(train)
+      print(test)
       return train, test
 
 def get_2020_days_array(df, args):

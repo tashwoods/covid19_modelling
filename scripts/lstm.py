@@ -35,10 +35,16 @@ def get_X_Y_test_train_scaled(X_scaler, Y_scaler, train_set, test_set, args, seq
   print('len train set: {}'.format(len(train_set)))
   print('len test set: {}'.format(len(test_set)))
   for i in range(len(train_set)):
+    print('i: {}'.format(i))
     this_train_set = train_set[i]
+    print(this_train_set)
     this_train_X, this_train_Y = get_X_Y(this_train_set, args, seq_output, X_scaler, Y_scaler)
     X_list_train.append(this_train_X)
     Y_list_train.append(this_train_Y)
+    '''
+    print(this_train_X)
+    print(this_train_Y)
+    '''
     '''
     if i == 0 or i== len(train_set) - 1:
       print('train X, y')
@@ -68,6 +74,7 @@ def get_X_Y_test_train_scaled(X_scaler, Y_scaler, train_set, test_set, args, seq
   if seq_output == 0:
     final_train_Y = final_train_Y.reshape(-1,1)
     final_test_Y = final_test_Y.reshape(-1,1)
+  print('returning')
 
   return final_train_X, final_train_Y, final_test_X, final_test_Y
 
@@ -84,57 +91,76 @@ def get_Y_data_unscaled(Y_scaler, final_train_Y, final_test_Y):
   return y_train_actual, y_test_actual
 
 def lstm(area, args, seq_output = 0):
+  print(area.name)
   #np.random.seed(7) need to think about when to use/not use this
   df = area.cv_days_df_not_scaled
+  print(df)
   #Convert Y-M-D to corresponding day in 2020 (e.g. Jan 2 2020 = day 2 of 2020, Dec 31 is day -1 of 2020, format needed for LSTM)
   df[args.name_cv_days] = get_2020_days_array(df, args)
   #Only keep desired variables for training
   df = df[[args.name_cv_days, 'new_cases', 'new_deaths', 'total_cases', 'total_deaths']] #NATASHA USE PARSER VAR
-  #Split into train and test sets
+  #Create list of samples (dataframes)
   df_list = create_df_list(df, args, seq_output)
+  #Split list of samples into training and testing sets
   train_set, test_set = get_train_test_sets(df_list, args, 1) #1 specifies dataframes for lstm
+
   #Scale train and test sets and split into X and Y
-  scaling_set = train_set[-1]
+  scaling_set = train_set[-1].copy()
+  print('scaling set')
+  print(scaling_set)
+
   scaling_set_X, scaling_set_Y = get_X_Y(scaling_set, args, seq_output) #0 specifies we are predicting one value not sequence
+  '''
+  for i in range(len(train_set)):
+    print(i)
+    print(train_set[i])
+  exit()
+  '''
+
   np.set_printoptions(suppress=True)
 
+  '''
   print('scaling sets')
   print(scaling_set_X)
   print(scaling_set_Y)
-
-
+  '''
   X_scaler, Y_scaler = get_X_Y_scaler(scaling_set_X, scaling_set_Y)
+  '''
   print('scaling set X unscaled')
   print(X_scaler.transform(scaling_set_X))
   print(X_scaler.inverse_transform(X_scaler.transform(scaling_set_X)))
-
+  
+  print('scaling set Y unscaled')
   print(Y_scaler.transform(scaling_set_Y))
   print(scaling_set_Y)
   print(Y_scaler.inverse_transform(Y_scaler.transform(scaling_set_Y)))
-  
-  exit()
-
-    
-
+  '''
+  #Create arrays of training X and Y samples. Create arrays of test X and Y samples.
+  print('start paying attention----------')
+  #issue seems to start here-----------
 
   final_train_X, final_train_Y, final_test_X, final_test_Y = get_X_Y_test_train_scaled(X_scaler, Y_scaler, train_set, test_set, args, seq_output)
 
-
   #Design Network
-  print('checking test and train arrays')
-  print('train X')
-  print(X_scaler.inverse_transform(final_train_X))
-  print(final_train_X.shape)
-  print('train Y')
-  print(Y_scaler.inverse_transform(final_train_Y))
-  print(final_train_Y.shape)
+  '''
+  i = 5
+  print('Train Set')
+  print(final_train_X[i])
+  print(X_scaler.inverse_transform(final_train_X[i]))
+  print(final_train_Y[i])
+  print(Y_scaler.inverse_transform(final_train_Y[i].reshape(-1,1)))
 
-  print('test X')
-  print(final_test_X)
-  print(final_test_X.shape)
-  print('test Y')
-  print(final_test_Y)
-  print(final_test_Y.shape)
+  i = 3
+  print('Test Set')
+  print(final_test_X[i])
+  print(X_scaler.inverse_transform(final_test_X[i]))
+  print(final_test_Y[i])
+  print(Y_scaler.inverse_transform(final_test_Y[i].reshape(-1,1)))
+  exit()
+  exit()
+  '''
+
+
   hidden_layer_dimensions = 100
   dropout = 0.2
   n_batch = 1
@@ -160,6 +186,8 @@ def lstm(area, args, seq_output = 0):
   for i,j in zip(final_train_X, final_train_Y):
     i = i.reshape(n_batch, i.shape[0], i.shape[1])
     forecasts.append(model.predict(i, batch_size = n_batch))
+
+  print(forecasts)
   exit()
   '''
   exit()
