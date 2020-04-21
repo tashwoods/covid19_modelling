@@ -53,7 +53,8 @@ from keras.preprocessing.sequence import pad_sequences
 import tensorflow as tf
 from tensorflow.keras import layers
 
-from plot import *
+#Internal Package Modules
 from organize_input_output import *
+from plot import *
 from lstm import *
 

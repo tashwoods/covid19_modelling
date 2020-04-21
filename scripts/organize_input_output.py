@@ -133,6 +133,9 @@ def get_first_cv_day(country_object, scale):
     print('trunchated list empty')
     return(-1)
 
+def small_test():
+  print('this works')
+
 def get_train_test_sets(df, args, lstm = 0):
   if lstm == 0:
     train_set_length = int(len(df.index)*args.train_set_percentage)
@@ -143,8 +146,6 @@ def get_train_test_sets(df, args, lstm = 0):
     train_set = df[:train_set_length + 1]
     test_set = df[train_set_length:]
   return train_set, test_set
-
-
 
 def get_population(area, pop_df, region_name, pop_name, state = -1):
   area_df = pop_df.loc[pop_df[region_name]== area]

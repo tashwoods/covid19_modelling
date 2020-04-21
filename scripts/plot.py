@@ -1,7 +1,5 @@
 from imported_libraries import *
 
-
-
 def logistic_model(x,a,b,c):
   return c/(1+np.exp(-(x-b)/a))
 
@@ -11,7 +9,7 @@ def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0, scaled  =
   n_prediction_days_bar = 15
   linewidth = args.linewidth
   markersize = args.markersize
-  col_array = plt.cm.jet(np.linspace(0,1,round(len(area_object_list)/2)+5))
+  col_array = plt.cm.jet(np.linspace(0,1,round(len(area_object_list))+1))
   append_string = 'scaled'
   if scaled == 0:
     append_string = 'unscaled'
@@ -345,8 +343,8 @@ def get_lives_saved_bar_chart(x_predict, y_predict, y_best, name, args, savename
 
 def plot(area_objects_list, args, plot_type, variables, scale_array):
   #Internal Variables
-  covid_days = 'cv_days' #name of covid days variable in dataframes
-  col = plt.cm.jet(np.linspace(0,1,round(len(area_objects_list)/2)+5))
+  covid_days = args.name_cv_days #name of covid days variable in dataframes
+  col = plt.cm.jet(np.linspace(0,1,round(len(area_objects_list) + 1)))
   #Plot time series for variables
   for var in variables:
     #Iterate thru specified y-scales
@@ -363,7 +361,7 @@ def plot(area_objects_list, args, plot_type, variables, scale_array):
           plt.xlabel(args.n_date_name)
           plt.ylabel(get_nice_var_name(var, args))
         #Plot Raw data vs outbreak days
-        elif plot_type == 'raw_covid_days' or plot_type == 'lives_saved_raw_covid_days':
+        elif plot_type == 'predict_raw_covid_days' or plot_type == 'lives_saved_raw_covid_days' or plot_type == 'raw_covid_days':
           all_data = area.cv_days_df_not_scaled
           train_set, test_set = get_train_test_sets(all_data, args)
           #Calculate max number of days to plot based on days_of_cv_predict
@@ -380,6 +378,10 @@ def plot(area_objects_list, args, plot_type, variables, scale_array):
 
           #Plot Data and Prediction
           if plot_type == 'raw_covid_days':
+            plt.plot(all_data[covid_days], all_data[var], label = area.name + ':' + str(growth_rate), linewidth = args.linewidth, color = col[i])
+            plt.xlabel('Days since ' + str(args.cv_day_thres_notscaled) + ' Deaths')
+            plt.ylabel(get_nice_var_name(var, args))
+          elif plot_type == 'predict_raw_covid_days':
             plt.scatter(all_data[covid_days], all_data[var], label = area.name + ':' + str(growth_rate) + ' RMSE: ' + str(test_rmse), s = args.markersize, color = col[i])
             plt.plot(all_data[covid_days], y_all, linestyle = 'solid', color = col[i])
             plt.plot(test_set[covid_days],y_test_best, color = col[i], linestyle = 'dashed')
@@ -395,7 +397,7 @@ def plot(area_objects_list, args, plot_type, variables, scale_array):
             get_lives_saved_bar_chart(x_predict, y_predict_indiv, y_best_indiv, area.name, area.input_args, 'Individual', scale)
 
         #Plot var/1M vs outbreak days
-        elif plot_type == 'per_mil_covid_days':
+        elif plot_type == 'predict_per_mil_covid_days' or plot_type == 'per_mil_covid_days':
           all_data = area.cv_days_df_per_mil
           train_set, test_set = get_train_test_sets(all_data, args)
           #Get max number of cv outbreak days to determine plot limits
@@ -409,10 +411,13 @@ def plot(area_objects_list, args, plot_type, variables, scale_array):
           y_test_best = 10**((args.min_growth_rate * test_set[covid_days]) + shifted_intercept_best)
           test_rmse = get_rmse(y_test, test_set[var])
           #Plot Data and Prediction
-          plt.scatter(all_data[covid_days], all_data[var], label = area.name + ':' + str(growth_rate) + ' RMSE: ' + str(test_rmse), s = args.markersize, color = col[i])
-          plt.plot(all_data[covid_days], y_all, linestyle = 'solid', color = col[i])
-          plt.plot(test_set[covid_days],y_test_best, color = col[i], linestyle = 'dashed')
+          if plot_type == 'predict_per_mil_covid_days':
+            plt.scatter(all_data[covid_days], all_data[var], label = area.name + ':' + str(growth_rate) + ' RMSE: ' + str(test_rmse), s = args.markersize, color = col[i])
+            plt.plot(test_set[covid_days],y_test_best, color = col[i], linestyle = 'dashed')
+            plt.plot(all_data[covid_days], y_all, linestyle = 'solid', color = col[i])
 
+          else:
+            plt.plot(all_data[covid_days], all_data[var], label = area.name + ':' + str(growth_rate), color = col[i], linewidth = args.linewidth)
           #plt.plot(all_df.index.values, all_df[var], label = area.name + ':' + str(growth_rate) + ' RMSE: ' + str(test_rmse), linewidth = args.linewidth)
           #plt.plot(x_predict, y_predict)
           plt.xlabel('Days since 1 ' + get_nice_var_name(var, args))
@@ -438,12 +443,48 @@ def plot(area_objects_list, args, plot_type, variables, scale_array):
       plt.savefig(args.output_dir + '/' + var + '_' + plot_type + '_' + scale + '.png')
       plt.close('all')
 
-def get_log_fit(train_set, covid_days, var, x):
-  model = np.poly1d(np.polyfit(train_set[covid_days], np.log10(train_set[var]),1))
+def growth_rates(area_obj_list, scale, dates, var, args):
+  col_array = plt.cm.jet(np.linspace(0,1,round(len(area_obj_list))+1))
+  for i in range(len(area_obj_list)):
+    growth_rates = list()
+    dates = list()
+    if dates == 'raw_dates':
+      df = area_obj_list[i].df.copy()
+    else:
+      df = area_obj_list[i].cv_days_df_not_scaled.copy()
+      date = args.name_cv_days
+    
+    days_to_average = 5
+
+    for j in range(days_to_average, len(df.index) - 1):
+      growth_rate = 0
+      sliced_df = df[j-days_to_average:j].copy()
+      if date == args.date_name:
+        _,_,_,_,growth_rate = get_log_fit(sliced_df, 'index', var)
+      elif date == args.name_cv_days:
+        _,_,_,_,growth_rate = get_log_fit(sliced_df, args.name_cv_days, var)
+      growth_rates.append(growth_rate)
+      dates.append(sliced_df.iloc[-1][date])
+
+    plt.plot(dates, growth_rates, label = area_obj_list[i].name, color = col_array[i], linewidth = args.linewidth)
+    plt.ylabel(var + ' growth rate')
+    plt.xlabel(date)
+    plt.legend()
+  plt.savefig(args.output_dir + '/growth_rates.png')
+
+  return
+
+def get_log_fit(train_set, covid_days, var, x = 0):
+  if covid_days != 'index':
+    model = np.poly1d(np.polyfit(train_set[covid_days], np.log10(train_set[var]),1))
+  else:
+    model = np.poly1d(np.polyfit(train_set.index, np.log10(train_set[var]),1))
   log_intercept = model[0]
   log_slope = model[1]
   #Calculate fitted prediction
-  prediction = 10**(model(x))
+  prediction = 0
+  if x != 0:
+    prediction = 10**(model(x))
   growth_rate = round(10**log_slope,2)
   return model, log_intercept, log_slope, prediction, growth_rate
 
