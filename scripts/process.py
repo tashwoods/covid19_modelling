@@ -326,4 +326,6 @@ if(args.do_lstm == 1):
       #new_lstm(area_obj_list[0], args)
 
 if(args.plot_growth_rates == 1):
-  growth_rates(area_obj_list, 'linear', 'cv_days', 'total_deaths', args)
+  #growth_rates(area_obj_list, 'linear', args.name_cv_days, 'total_deaths', args, 0)
+  #growth_rates(area_obj_list, 'linear', args.name_cv_days, 'total_deaths', args, 'doublingtime')
+  #growth_rates(area_obj_list, 'linear', args.date_name, 'total_deaths', args)

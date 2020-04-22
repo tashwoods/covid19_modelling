@@ -443,34 +443,61 @@ def plot(area_objects_list, args, plot_type, variables, scale_array):
       plt.savefig(args.output_dir + '/' + var + '_' + plot_type + '_' + scale + '.png')
       plt.close('all')
 
-def growth_rates(area_obj_list, scale, dates, var, args):
+def growth_rates(area_obj_list, scale, date_name, var, args, doublingtime = 0):
+  plt.close('all')
   col_array = plt.cm.jet(np.linspace(0,1,round(len(area_obj_list))+1))
   for i in range(len(area_obj_list)):
+    print(area_obj_list[i].name)
     growth_rates = list()
     dates = list()
-    if dates == 'raw_dates':
+    doubling_time = list()
+
+    if date_name == args.date_name:
       df = area_obj_list[i].df.copy()
     else:
       df = area_obj_list[i].cv_days_df_not_scaled.copy()
-      date = args.name_cv_days
     
-    days_to_average = 5
-
+    days_to_average = 7
     for j in range(days_to_average, len(df.index) - 1):
       growth_rate = 0
+      log_slope = 0
       sliced_df = df[j-days_to_average:j].copy()
-      if date == args.date_name:
-        _,_,_,_,growth_rate = get_log_fit(sliced_df, 'index', var)
-      elif date == args.name_cv_days:
-        _,_,_,_,growth_rate = get_log_fit(sliced_df, args.name_cv_days, var)
+      if date_name == args.date_name:
+        _,_,log_slope,_,growth_rate = get_log_fit(sliced_df, 'index', var)
+      elif date_name == args.name_cv_days:
+        _,_,log_slope,_,growth_rate = get_log_fit(sliced_df, args.name_cv_days, var)
       growth_rates.append(growth_rate)
-      dates.append(sliced_df.iloc[-1][date])
+      doubling_time.append(log10(2)/log_slope)
+      dates.append(sliced_df.iloc[-1][date_name])
+    #print(growth_rates)
+    #print(doubling_time)
 
-    plt.plot(dates, growth_rates, label = area_obj_list[i].name, color = col_array[i], linewidth = args.linewidth)
-    plt.ylabel(var + ' growth rate')
-    plt.xlabel(date)
+    if date_name == args.date_name:
+      print('hi')
+    if doublingtime == 0:
+      if(date_name == args.date_name):
+        plt.plot_date(dates, growth_rates, label = area_obj_list[i].name, color = col_array[i], linewidth = args.linewidth, linestyle = 'solid', markersize = 0)
+      else:
+        plt.plot(dates, growth_rates, label = area_obj_list[i].name, color = col_array[i], linewidth = args.linewidth, linestyle = 'solid', markersize = 0)
+      plt.xticks(fontsize = args.tick_font_size)
+      plt.ylabel(get_nice_var_name(var) + ' Growth Rate')
+    else:
+      if(date_name == args.date_name):
+        plt.plot_date(dates, doubling_time, label = area_obj_list[i].name, color = col_array[i], linewidth = args.linewidth, linestyle = 'solid', markersize = 0)
+      else:
+        plt.plot(dates, doubling_time, label = area_obj_list[i].name, color = col_array[i], linewidth = args.linewidth, linestyle = 'solid', markersize = 0)
+      #plt.plot(dates, doubling_time, label = area_obj_list[i].name, color = col_array[i], linewidth = args.linewidth)
+      plt.ylabel('Doubling Time in Days')
+      #plt.ylim(0,80)
+    if date_name == args.date_name:
+      plt.xlabel('Date')
+    else:
+      plt.xlabel('Days since ' + str(args.cv_day_thres_notscaled) + ' Deaths')
     plt.legend()
-  plt.savefig(args.output_dir + '/growth_rates.png')
+  if doublingtime == 0:
+    plt.savefig(args.output_dir + '/growth_rates.png')
+  else:
+    plt.savefig(args.output_dir + '/doubling_time.png')
 
   return
 
