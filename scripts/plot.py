@@ -469,26 +469,25 @@ def growth_rates(area_obj_list, scale, date_name, var, args, doublingtime = 0):
       growth_rates.append(growth_rate)
       doubling_time.append(log10(2)/log_slope)
       dates.append(sliced_df.iloc[-1][date_name])
-    #print(growth_rates)
-    #print(doubling_time)
 
-    if date_name == args.date_name:
-      print('hi')
     if doublingtime == 0:
       if(date_name == args.date_name):
         plt.plot_date(dates, growth_rates, label = area_obj_list[i].name, color = col_array[i], linewidth = args.linewidth, linestyle = 'solid', markersize = 0)
+        plt.xticks(fontsize = args.tick_font_size)
       else:
         plt.plot(dates, growth_rates, label = area_obj_list[i].name, color = col_array[i], linewidth = args.linewidth, linestyle = 'solid', markersize = 0)
-      plt.xticks(fontsize = args.tick_font_size)
+
       plt.ylabel(get_nice_var_name(var) + ' Growth Rate')
     else:
       if(date_name == args.date_name):
         plt.plot_date(dates, doubling_time, label = area_obj_list[i].name, color = col_array[i], linewidth = args.linewidth, linestyle = 'solid', markersize = 0)
+        plt.xticks(fontsize = args.tick_font_size)
+        plt.ylim(0,80)
       else:
         plt.plot(dates, doubling_time, label = area_obj_list[i].name, color = col_array[i], linewidth = args.linewidth, linestyle = 'solid', markersize = 0)
       #plt.plot(dates, doubling_time, label = area_obj_list[i].name, color = col_array[i], linewidth = args.linewidth)
       plt.ylabel('Doubling Time in Days')
-      #plt.ylim(0,80)
+      plt.ylim(0,80)
     if date_name == args.date_name:
       plt.xlabel('Date')
     else:
@@ -505,7 +504,7 @@ def get_log_fit(train_set, covid_days, var, x = 0):
   if covid_days != 'index':
     model = np.poly1d(np.polyfit(train_set[covid_days], np.log10(train_set[var]),1))
   else:
-    model = np.poly1d(np.polyfit(train_set.index, np.log10(train_set[var]),1))
+    model = np.poly1d(np.polyfit(np.arange(len(train_set)), np.log10(train_set[var]),1))
   log_intercept = model[0]
   log_slope = model[1]
   #Calculate fitted prediction

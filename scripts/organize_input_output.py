@@ -40,19 +40,10 @@ def get_X_Y(df, args, seq_output = 0, X_scaler=0, Y_scaler=0):
       return X, Y 
   else: #Predict Sequence
     train = df.iloc[:-args.days_of_cv_predict,:] #exclude last n entries of df to use for prediction
-
     test = df.iloc[-args.days_of_cv_predict:,:]
     test = test[args.predict_var].to_numpy()
     test = pd.DataFrame(data = test)
 
-    '''
-    print('getting seq')
-    print(df)
-    print('train')
-    print(train)
-    print('test')
-    print(test)
-    '''
     if X_scaler != 0 and Y_scaler != 0:
       Y = df[args.predict_var]
       #Standardize X and Y

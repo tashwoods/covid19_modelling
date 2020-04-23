@@ -106,65 +106,17 @@ def lstm(area, args, seq_output = 0):
 
   #Scale train and test sets and split into X and Y
   scaling_set = train_set[-1].copy()
-  print('scaling set')
-  print(scaling_set)
-
   scaling_set_X, scaling_set_Y = get_X_Y(scaling_set, args, seq_output) #0 specifies we are predicting one value not sequence
-  '''
-  for i in range(len(train_set)):
-    print(i)
-    print(train_set[i])
-  exit()
-  '''
-
   np.set_printoptions(suppress=True)
-
-  '''
-  print('scaling sets')
-  print(scaling_set_X)
-  print(scaling_set_Y)
-  '''
   X_scaler, Y_scaler = get_X_Y_scaler(scaling_set_X, scaling_set_Y)
-  '''
-  print('scaling set X unscaled')
-  print(X_scaler.transform(scaling_set_X))
-  print(X_scaler.inverse_transform(X_scaler.transform(scaling_set_X)))
-  
-  print('scaling set Y unscaled')
-  print(Y_scaler.transform(scaling_set_Y))
-  print(scaling_set_Y)
-  print(Y_scaler.inverse_transform(Y_scaler.transform(scaling_set_Y)))
-  '''
   #Create arrays of training X and Y samples. Create arrays of test X and Y samples.
-  print('start paying attention----------')
-  #issue seems to start here-----------
-
   final_train_X, final_train_Y, final_test_X, final_test_Y = get_X_Y_test_train_scaled(X_scaler, Y_scaler, train_set, test_set, args, seq_output)
 
   #Design Network
-  '''
-  i = 5
-  print('Train Set')
-  print(final_train_X[i])
-  print(X_scaler.inverse_transform(final_train_X[i]))
-  print(final_train_Y[i])
-  print(Y_scaler.inverse_transform(final_train_Y[i].reshape(-1,1)))
-
-  i = 3
-  print('Test Set')
-  print(final_test_X[i])
-  print(X_scaler.inverse_transform(final_test_X[i]))
-  print(final_test_Y[i])
-  print(Y_scaler.inverse_transform(final_test_Y[i].reshape(-1,1)))
-  exit()
-  exit()
-  '''
-
-
   hidden_layer_dimensions = 100
   dropout = 0.2
   n_batch = 1
-  epochs = 2
+  epochs = 1000
   model = Sequential()
 
   if seq_output == 0:
@@ -177,18 +129,60 @@ def lstm(area, args, seq_output = 0):
     model.add(LSTM(hidden_layer_dimensions, batch_input_shape=(n_batch,final_train_X.shape[1], final_train_X.shape[2]), stateful=True))
     model.add(Dense(final_train_Y.shape[1]))
 
-
   model.compile(loss='mean_squared_error', optimizer = 'adam')
   print(model.summary())
   model.fit(final_train_X, final_train_Y, epochs=epochs, batch_size=n_batch, verbose=1, shuffle=False, validation_data = (final_test_X, final_test_Y))
 
   forecasts = list()
+  dates = list()
   for i,j in zip(final_train_X, final_train_Y):
     i = i.reshape(n_batch, i.shape[0], i.shape[1])
-    forecasts.append(model.predict(i, batch_size = n_batch))
+    forecasts.append(Y_scaler.inverse_transform(model.predict(i, batch_size = n_batch)))
+    dates_df = pd.DataFrame(np.squeeze(i))
+    original_df = pd.DataFrame(X_scaler.inverse_transform(dates_df))
+    last_day = original_df.iloc[-1][0] +1
+    predicted_days = np.arange(last_day, last_day + args.days_of_cv_predict)
+    dates.append(predicted_days)
+
+  forecasts_test = list()
+  dates_test = list()
+  for i, j in zip(final_test_X, final_train_Y):
+    i = i.reshape(n_batch, i.shape[0], i.shape[1])
+    forecasts_test.append(Y_scaler.inverse_transform(model.predict(i, batch_size = n_batch)))
+    dates_df = pd.DataFrame(np.squeeze(i))
+    original_df = pd.DataFrame(X_scaler.inverse_transform(dates_df))
+    last_day = original_df.iloc[-1][0] +1
+    predicted_days = np.arange(last_day, last_day + args.days_of_cv_predict)
+    dates_test.append(predicted_days)
+
+
+  print('done')
+  print(forecasts)
+  print(dates)
+  for i,j in zip(dates, np.squeeze(forecasts)):
+    #plt.plot(i,j, color = 'blue', label = 'Training Set Predictions')
+    plt.plot(i,j, color = 'blue')
+  for i,j in zip(dates_test, np.squeeze(forecasts_test)):
+    #plt.plot(i,j, color = 'green', label = 'Test Set Predictions')
+    plt.plot(i,j, color = 'green')
+  print(train_set)
+  plt.plot(df['cv_days'], df['total_deaths'], color = 'black', label = 'data')
+  plt.savefig(args.output_dir + '/lstm.png')
+  exit()
+  print('out of loop')
 
   print(forecasts)
+  print(final_train_X)
+  print(final_train_Y)
+  print(len(train_set))
+  print(len(test_set))
   exit()
+  for i, j in zip(dates, forecasts):
+    print('in loop')
+    print(i)
+    print(j)
+    plt.plot(i,j)
+  plt.savefig(args.output_dir + '/lstm.png')
   '''
   exit()
   nb_epoch = 2
