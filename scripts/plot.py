@@ -24,7 +24,7 @@ def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0, scaled  =
     if name == 'South Korea':
       train_set, test_set = get_train_test_sets(all_data, args)
       x = train_set[args.name_cv_days]
-      y = train_set[args.n_deaths_per_mil]
+      y = train_set[args.name_deaths_per_mil]
 
       popt, pcov = curve_fit(logistic_model, x, y, p0=[5,20, 0.002*C], bounds=[[0,5,0.00001*C],[20,50,C]])
       south_korea_a, south_korea_b, south_korea_c = popt[0], popt[1], popt[2]
@@ -33,7 +33,7 @@ def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0, scaled  =
       y_predict = logistic_model(x_array, south_korea_a, south_korea_b, south_korea_c)
 
       if(lives_saved == 0):
-        rmse = get_rmse(frac*logistic_model(test_set[args.name_cv_days], south_korea_a, south_korea_b, south_korea_c), frac*test_set[args.n_deaths_per_mil])
+        rmse = get_rmse(frac*logistic_model(test_set[args.name_cv_days], south_korea_a, south_korea_b, south_korea_c), frac*test_set[args.name_deaths_per_mil])
         plt.plot(x_array,frac*y_predict, label = name + ': ' + str(round(frac/south_korea_a,2)) + ' RMSE: ' + str(rmse) , color = col_array[0], linewidth = linewidth)
         plt.scatter(x,frac*y, s = markersize, color = col_array[0])
 
@@ -48,7 +48,7 @@ def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0, scaled  =
       name = area.name
       train_set, test_set = get_train_test_sets(area.cv_days_df_per_mil, args)
       x = train_set[args.name_cv_days]
-      y = train_set[args.n_deaths_per_mil]
+      y = train_set[args.name_deaths_per_mil]
 
       #Fit logistic curve to data
       popt, pcov = curve_fit(logistic_model, x, y, p0=[5,20, 0.002*C], bounds=[[0,5,0.00001*C],[20,50,C]])
@@ -64,7 +64,7 @@ def fit_logistic_all(area_object_list, scale = 'log', lives_saved = 0, scaled  =
       y_sk_predict = logistic_model(x_sk_array, south_korea_a, south_korea_b, south_korea_c) + offset
 
       if lives_saved == 0:
-        rmse = get_rmse(frac*logistic_model(test_set[args.name_cv_days], a, b, c), frac*test_set[args.n_deaths_per_mil])
+        rmse = get_rmse(frac*logistic_model(test_set[args.name_cv_days], a, b, c), frac*test_set[args.name_deaths_per_mil])
         plt.plot(x_array,frac*y_predict, label = name + ': '+ str(round(frac/a,2)) + ' RMSE: ' + str(rmse), color = col_array[i], linewidth = linewidth, linestyle = 'solid')
         plt.plot(x_sk_array, frac*y_sk_predict, color = col_array[i], linestyle = 'dashed', linewidth = linewidth)
         plt.scatter(x,frac*y, s = markersize, color = col_array[i])
@@ -111,12 +111,6 @@ def fit_logistic(x, y, C, args, name):
   errors = [np.sqrt(pcov[i][i]) for i in [0,1,2]]
   sol = int(fsolve(lambda x : logistic_model(x,a,b,c) - int(c),b))
 
-  print('total deaths: {} +/- {}'.format(c, errors[2]))
-  print('infec speed: {} +/- {}'.format(a, errors[0]))
-  print('turning pt: {} +/- {}'.format(b, errors[1]))
-  print(100*(c/C))
-  print(sol)
-
   x_array = np.linspace(0, sol+30, sol+1+30)
   y_predict = logistic_model(x_array, popt[0], popt[1], popt[2])
 
@@ -129,7 +123,6 @@ def fit_logistic(x, y, C, args, name):
   plt.close('all')
 
 def make_gif(area_obj_list, dataframe_name, var, start_date, end_date, args):
-  print('here-----------')
   df_list = list()
   maxes = list()
   #Create area_object dataframes list per day for GIFs

@@ -40,6 +40,7 @@ from matplotlib.animation import FuncAnimation
 from datetime import datetime, timedelta, date #for time dependent gif plots
 from scipy.optimize import curve_fit #to fit sigmoids of infection/death rates
 from scipy.optimize import fsolve #to solve logistic curve for infection end date
+import matplotlib.dates as mdates
 
 #For LSTM based on https://machinelearningmastery.com/time-series-prediction-lstm-recurrent-neural-networks-python-keras/
 from keras.models import Sequential
@@ -48,10 +49,16 @@ from keras.models import Sequential
 from keras.layers import *
 from sklearn.preprocessing import MinMaxScaler
 from keras.preprocessing.sequence import TimeseriesGenerator
+from keras.callbacks import EarlyStopping
 ########
 from keras.preprocessing.sequence import pad_sequences
 import tensorflow as tf
 from tensorflow.keras import layers
+#from keras.utils.vis_utils import model_to_dot
+#import pydot as pyd
+#from IPython.display import SVG
+from keras.utils import plot_model
+
 
 #Internal Package Modules
 from organize_input_output import *

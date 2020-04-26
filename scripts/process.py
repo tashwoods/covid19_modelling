@@ -37,7 +37,6 @@ if __name__ == '__main__':
   parser.add_argument('-time_series_variables', '--time_series_variables', type = list, dest = 'time_series_variables', default = ['total_deaths'], help = 'list of variables to plot in time series')
   parser.add_argument('-area_var_name', '--area_var_name', type = str, dest = 'area_var_name', default = 'location', help = 'area variable name in input dataset')
   parser.add_argument('-date_name', '--date_name', type = str, dest = 'date_name', default = 'date', help = 'name of date columns in input file')
-  parser.add_argument('-n_date_name', '-n_date_name', type = str, dest = 'n_date_name', default = 'Date', help = 'name of date variable for plots')
   parser.add_argument('-name_total_cases', '--name_total_cases', type = str, dest = 'name_total_cases', default = 'total_cases', help = 'name of total case variable in country level file')
   parser.add_argument('-name_total_deaths', '--name_total_deaths', type = str, dest = 'name_total_deaths', default = 'total_deaths', help = 'name of total deaths variable in country level file')
   parser.add_argument('-name_new_cases', '--name_new_cases', type = str, dest = 'name_new_cases', default = 'new_cases', help = 'name of variable in country level file for new cases per day')
@@ -45,14 +44,14 @@ if __name__ == '__main__':
   parser.add_argument('-name_cv_days', '--name_cv_days', type = str, dest = 'name_cv_days', default = 'cv_days', help = 'name of cv outbreak days')
   parser.add_argument('-predict_var', '--predict_var', type = str, dest = 'predict_var', default = 'total_deaths', help = 'number of variable used to determine where to start counting cv days, should be whichever variable in your dataset you believe is the most accurate')
   parser.add_argument('-name_fips', '--name_fips', type = str, dest = 'name_fips', default = 'fips', help = 'name of fips variable in input data')
-  parser.add_argument('-n_deaths_per_mil', '--n_deaths_per_mil', type = str, dest = 'n_deaths_per_mil', default = 'deaths_per_mil', help = 'name of deaths_per_mil variable')
+  parser.add_argument('-name_deaths_per_mil', '--name_deaths_per_mil', type = str, dest = 'name_deaths_per_mil', default = 'deaths_per_mil', help = 'name of deaths_per_mil variable')
   parser.add_argument('-population_density_name', '--population_density_name', type = str, dest = 'population_density_name', default = 'population_density', help = 'name of variable for population density in dataframes')
 
   #LSTM Variables---
   parser.add_argument('-min_entries_df_lstm', '--min_entries_df_lstm', type = int, dest = 'min_entries_df_lstm', default = 5, help = 'number of entries required in dataframe for it to be considered a sample for the lstm')
   parser.add_argument('-lstm_var', '--lstm_var', type = list, default = ['new_cases', 'new_deaths', 'total_cases', 'total_deaths'], help = 'variables for lstm to use')
   parser.add_argument('-max_scaling_lstm', '--max_scaling_lstm', type = float, dest = 'max_scaling_lstm', default = 2.0, help = 'how much to multiply max of predict var for lstm prediction so train set can cover test set')
-  parser.add_argument('-lstm_seq_length', '--lstm_seq_length', type = int, dest = 'lstm_seq_length', default = 24, help = 'length of lstm sequences. Sequences shorter than this will be padded to specified length')
+  parser.add_argument('-lstm_seq_length', '--lstm_seq_length', type = int, dest = 'lstm_seq_length', default = 200, help = 'length of lstm sequences. Sequences shorter than this will be padded to specified length')
   parser.add_argument('-mask_value_lstm', '--mask_value_lstm', type = int, dest = 'mask_value_lstm', default = -100, help = 'value to apply to nan/bad values in lstm sequence so they are ignored/masked in training. For some reason leaving them as nan does not end well')
 
   #Program Control Options
@@ -61,15 +60,17 @@ if __name__ == '__main__':
   parser.add_argument('-make_gif', '--make_gif', type = int, dest = 'make_gif', default = 0, help = 'set to one to make gifs of variables for US counties')
   parser.add_argument('-add_land_area', '--add_land_area', type = int, dest = 'add_land_area', default = 0, help = 'set to one to add land area and population density')
   parser.add_argument('-do_lstm', '--do_lstm', type = int, dest = 'do_lstm', default = 0, help = 'set to one to fit time series distributions using lstm')
+  parser.add_argument('-do_combined_lstm', '--do_combined_lstm', type = int, dest = 'do_combined_lstm', default = 0, help = 'set to one to train lstm using information from all areas')
   parser.add_argument('-plot_growth_rates', '--plot_growth_rates', type = int, dest = 'plot_growth_rates', default = 0, help = 'set to one to plot growth rates vs time')
 
   #Analysis Variable Settings
   parser.add_argument('-growth_rates', '--growth_rates', type = list, dest = 'growth_rates', default = [1.35], help = 'list of growth rates to plot')
   parser.add_argument('-train_set_percent', '--train_set_percent', type = int, dest = 'train_set_percentage', default = 0.8, help = 'percentage of data to use for train set')
-  parser.add_argument('-cv_day_thres', '--cv_day_thres', type = int, dest = 'cv_day_thres', default = 1000000, help = 'total number of cases to consider it the first day of cv19')
+  parser.add_argument('-cv_day_thres', '--cv_day_thres', type = int, dest = 'cv_day_thres', default = 1000000, help = 'must have one case per cv_day_thres number of people to consider it first day of outbreak')
   parser.add_argument('-cv_day_thres_notscaled', '--cv_day_thres_notscaled', type = int, dest = 'cv_day_thres_notscaled', default = 10, help = 'minimum number of deaths to start counting CV days from for unscaled data')
   parser.add_argument('-dc_land_area', '--dc_land_area', type = float, dest = 'dc_land_area', default = 68.34, help = 'land area of DC')
   parser.add_argument('-min_indiv_growth_rate', '--min_indiv_growth_rate', type = float, dest = 'min_indiv_growth_rate', default = 7.6595717E-10, help = 'minimum individual contribution to growth rate')
+  parser.add_argument('-min_growth_rate', '--min_growth_rate', type = float, dest = 'min_growth_rate', default = 0.0293838, help = 'min growth rate to compare to') #0.0357 absolute best
   parser.add_argument('-days_to_count_from_lstm', '--days_to_count_from_lstm', type = str, dest = 'days_to_count_from_lstm', default = '2020-01-01', help = 'days to count from for lstm')
   parser.add_argument('-gif_delay', '--gif_delay', type = str, dest = 'gif_delay', default = '20', help = 'delay between jpg for gif')
   parser.add_argument('-nyc_fips', '--nyc_fips', type = list, dest = 'nyc_fips', default = [36005, 36047, 36061, 36081, 36085], help = 'list of NYC fips')
@@ -80,8 +81,7 @@ if __name__ == '__main__':
   parser.add_argument('-plot_y_scale', '--plot_y_scale', type = str, dest = 'plot_y_scale', default = 'log', help = 'scale for y axis, set to linear, log, etc')
   parser.add_argument('-linewidth', '--linewidth', type = int, dest = 'linewidth', default = 1, help = 'width of lines for plots')
   parser.add_argument('-markersize', '--markersize', type = int, dest = 'markersize', default = 3, help = 'size of markers to use in scatter plots')
-  parser.add_argument('-days_of_cv_predict', '--days_of_cv_predict', type = int, dest = 'days_of_cv_predict', default = 5, help = 'number of days past last date in dataset to predict cv trends')
-  parser.add_argument('-min_growth_rate', '--min_growth_rate', type = float, dest = 'min_growth_rate', default = 0.0293838, help = 'min growth rate to compare to') #0.0357 absolute best
+  parser.add_argument('-days_of_cv_predict', '--days_of_cv_predict', type = int, dest = 'days_of_cv_predict', default = 15, help = 'number of days past last date in dataset to predict cv trends')
   parser.add_argument('-gif_percentile', '--gif_percentile', type = float, dest = 'gif_percentile', default = 99.7, help = 'percentile to use to determine max value used in gif heatmaps (otherwise outliers crowd plots)')
   args = parser.parse_args()
 
@@ -150,7 +150,7 @@ if __name__ == '__main__':
         area = area.iloc[0][new_land_area_name]
         this_country_df[args.population_density_name] = population/area
       #Calculate and add deaths_per_mil and population density variables to dataframe
-      this_country_df[args.n_deaths_per_mil] = args.cv_day_thres*this_country_df[args.name_total_deaths].copy().div(population)
+      this_country_df[args.name_deaths_per_mil] = args.cv_day_thres*this_country_df[args.name_total_deaths].copy().div(population)
       #Calculate CV-day dataframe per million people and for entire population
       cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_country_df, population, args)
       #Create area object for selected country and add to area_obj_list
@@ -183,7 +183,7 @@ if __name__ == '__main__':
       this_state_df[args.name_new_deaths] = this_state_df[args.name_total_deaths].diff().fillna(0)
       #this_state_df.fillna(0, inplace = True)
       #Calculate and add deaths_per_mil variable to dataframe
-      this_state_df[args.n_deaths_per_mil] = args.cv_day_thres*this_state_df[args.name_total_deaths].div(population)
+      this_state_df[args.name_deaths_per_mil] = args.cv_day_thres*this_state_df[args.name_total_deaths].div(population)
       #Calculate CV-day dataframe per million people and for entire population
       cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_state_df, population, args)
       #Create area object for selected country and add to area_obj_list
@@ -207,7 +207,7 @@ if __name__ == '__main__':
     this_county_df[args.area_var_name] = 'New York'
     #Sort entries by date
     #Calculate Deaths per million people and add to dataframe
-    this_county_df[args.n_deaths_per_mil] = args.cv_day_thres*this_county_df[args.name_total_deaths].div(population)
+    this_county_df[args.name_deaths_per_mil] = args.cv_day_thres*this_county_df[args.name_total_deaths].div(population)
     this_county_df = this_county_df.sort_values(by=[args.date_name])
     this_county_df = this_county_df.dropna()
     #Calculate and add new cases and deaths to dataframe
@@ -244,7 +244,7 @@ if __name__ == '__main__':
         this_county_df[args.population_density_name] = population/area
 
       #Calculate Deaths per million people and add to dataframe
-      this_county_df[args.n_deaths_per_mil] = args.cv_day_thres*this_county_df[args.name_total_deaths].div(population)
+      this_county_df[args.name_deaths_per_mil] = args.cv_day_thres*this_county_df[args.name_total_deaths].div(population)
 
       if this_county_df.empty != True:
         #Sort entries by date
@@ -278,7 +278,7 @@ if __name__ == '__main__':
   hubei_df[args.name_new_cases] = hubei_df[args.name_total_cases].diff().fillna(0)
   hubei_df[args.name_new_deaths] = hubei_df[args.name_total_deaths].diff().fillna(0)
   #Calculate Deaths per million people and add to dataframe
-  hubei_df[args.n_deaths_per_mil] = args.cv_day_thres*hubei_df[args.name_total_deaths].div(hubei_pop)
+  hubei_df[args.name_deaths_per_mil] = args.cv_day_thres*hubei_df[args.name_total_deaths].div(hubei_pop)
   #Calculate CV-day dataframe per million people and for entire population
   cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(hubei_df, hubei_pop, args)
   #Create Hubei area object and add to area_obj_list
@@ -318,15 +318,15 @@ if(args.fit_logistic == 1):
     fit_logistic(this_df[args.name_cv_days], this_df['total_deaths'], county.population, args, county.name)
 
 if(args.do_lstm == 1):
-  #lstm_combined(area_obj_list[0], args)
   for i in range(len(area_obj_list)):
     if area_obj_list[i].name == 'Los Angeles':
-      #seq_lstm(area_obj_list[i], args)
       lstm(area_obj_list[i], args, 1)
-      #new_lstm(area_obj_list[0], args)
+
+if(args.do_combined_lstm == 1):
+  lstm_combined(area_obj_list[0], args)
 
 if(args.plot_growth_rates == 1):
   growth_rates(area_obj_list, 'linear', args.name_cv_days, 'total_deaths', args, 0)
   growth_rates(area_obj_list, 'linear', args.name_cv_days, 'total_deaths', args, 'doublingtime')
-  #growth_rates(area_obj_list, 'linear', args.date_name, 'total_deaths', args)
-  #growth_rates(area_obj_list, 'linear', args.date_name, 'total_deaths', args, 'doublingtime')
+  growth_rates(area_obj_list, 'linear', args.date_name, 'total_deaths', args)
+  growth_rates(area_obj_list, 'linear', args.date_name, 'total_deaths', args, 'doublingtime')

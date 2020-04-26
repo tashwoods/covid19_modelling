@@ -49,8 +49,6 @@ def get_X_Y(df, args, seq_output = 0, X_scaler=0, Y_scaler=0):
       #Standardize X and Y
       scaled_X = X_scaler.transform(train)
       scaled_Y = Y_scaler.transform(test)
-      #print(scaled_X)
-      #print(scaled_Y)
       #Pad X matrices to have same length
       n_rows_X = scaled_X.shape[0]
       n_rows_to_add = args.lstm_seq_length - n_rows_X
@@ -80,12 +78,6 @@ def get_2020_days_array(df, args):
   df = df.astype({'date': str})
   date_array = [(datetime.strptime(i, date_format) - start_date).days for i in df['date'] ]
   return date_array
-
-
-
-
-
-
 
 def simple_get_first_cv_day(country, population, args):
   cv_thres_per_mil = population*(1/args.cv_day_thres) #will give first day that one in cv_day_thres people in country affected via predict var
@@ -123,9 +115,6 @@ def get_first_cv_day(country_object, scale):
   else:
     print('trunchated list empty')
     return(-1)
-
-def small_test():
-  print('this works')
 
 def get_train_test_sets(df, args, lstm = 0):
   if lstm == 0:
@@ -170,12 +159,8 @@ def get_cv_days_df(area_df, population, args):
 
   return cv_days_df_per_mil, cv_days_df_not_scaled
 
-def add_attributes(dataset): #Natasha: make this less hardcoded and more dynamic
-  #dataset['Open_Close'] = dataset['Open']/dataset['Close']
-  #dataset['Low_High'] = dataset['Low']/dataset['High']
-  dataset['Close_Open_Change'] = (dataset['Close'] - dataset['Open'])/dataset['Open']
-  dataset['High_Open_Change'] = (dataset['High'] - dataset['Open'])/dataset['Open']
-  dataset['Low_Open_Change'] = (dataset['Open'] - dataset['Low'])/dataset['Open']
+def add_attributes(dataset, attribute_name, attribute_array): #Natasha: make this less hardcoded and more dynamic
+  dataset[attribute_name] = attribute_array
   return dataset
 
 def averaged_dataframe(dataset, days):
