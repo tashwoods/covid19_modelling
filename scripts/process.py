@@ -2,7 +2,7 @@ from imported_libraries import *
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description = 'arg parser for process.py')
-  #Output Dir--------
+  #Output Dir------
   parser.add_argument('-output_dir', '--output_dir', type = str, dest = 'output_dir', default = 'output', help = 'name of output_dir')
   #Input Data ---------------------------------------------------------------
   #Corona Data----
