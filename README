@@ -1,7 +1,31 @@
+This repo can be used to look at country, US State, and US county level COVID data
+
+Specify areas to check in:
+scripts/selected_areas/countries.txt
+scripts/selected_areas/states.txt
+scripts/selected_areas/mycounties.txt
+
+To update input dataset:
+source update_files.sh
+
+To plot diagnostic figures (e.g. total deaths vs time):
+python process.py -plot_time_series 1
+
+To make gifs of diagnostic figures:
+python processes.py -make_gif 1
+
+To run lstm model:
+python process.py -do_lstm 1
+
+process.py contains other analyses you can run/build on if you like
+
+
+
+
+Data Sources---------------------------------------------------------
 Population Data----------------------------------
 NST-EST2019
 https://www2.census.gov/programs-surveys/popest/technical-documentation/file-layouts/2010-2019/nst-est2019-alldata.pdf
-
 COVID-19 Data----------------------------------
 Country-level----------------------------------
 https://covid.ourworldindata.org/data/ecdc/full_data.csv
