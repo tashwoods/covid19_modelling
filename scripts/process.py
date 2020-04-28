@@ -319,8 +319,7 @@ if(args.fit_logistic == 1):
 
 if(args.do_lstm == 1):
   for i in range(len(area_obj_list)):
-    if area_obj_list[i].name == 'Los Angeles':
-      lstm(area_obj_list[i], args, 1)
+    lstm(area_obj_list[i], args, 1)
 
 if(args.do_combined_lstm == 1):
   lstm_combined(area_obj_list[0], args)

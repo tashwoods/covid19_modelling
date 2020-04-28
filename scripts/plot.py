@@ -351,7 +351,7 @@ def plot(area_objects_list, args, plot_type, variables, scale_array):
         if plot_type == 'raw_dates': 
           area_df = area.df
           plt.plot(area_df[args.date_name], area_df[var], label = area.name, linewidth = args.linewidth, color = col[i])
-          plt.xlabel(args.n_date_name)
+          plt.xlabel(args.date_name)
           plt.ylabel(get_nice_var_name(var, args))
         #Plot Raw data vs outbreak days
         elif plot_type == 'predict_raw_covid_days' or plot_type == 'lives_saved_raw_covid_days' or plot_type == 'raw_covid_days':
@@ -493,7 +493,7 @@ def growth_rates(area_obj_list, scale, date_name, var, args, doublingtime = 0):
 
   return
 
-def get_log_fit(train_set, covid_days, var, x = 0):
+def get_log_fit(train_set, covid_days, var, x = None):
   if covid_days != 'index':
     model = np.poly1d(np.polyfit(train_set[covid_days], np.log10(train_set[var]),1))
   else:
@@ -502,7 +502,8 @@ def get_log_fit(train_set, covid_days, var, x = 0):
   log_slope = model[1]
   #Calculate fitted prediction
   prediction = 0
-  if x != 0:
+  print(type(x))
+  if type(x) == np.ndarray:
     prediction = 10**(model(x))
   growth_rate = round(10**log_slope,2)
   return model, log_intercept, log_slope, prediction, growth_rate
