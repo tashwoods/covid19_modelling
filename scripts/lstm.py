@@ -10,9 +10,9 @@ def create_df_list(df, args, seq_output):
     if i < args.days_of_cv_predict + args.min_entries_df_lstm: #only keep df if it has min number of entries
       continue
     if seq_output == 0:
-      df_list.append(df[0:i]) #here could also create week and month predictions
+      df_list.append(df[0:i].copy()) #here could also create week and month predictions
     else:
-      df_list.append(df[0:i]) #here could also create week and month predictions
+      df_list.append(df[0:i].copy()) #here could also create week and month predictions
   return df_list
 
 def get_X_Y_scaler(scaling_set_X, scaling_set_Y, seq_output = 0):
@@ -28,9 +28,7 @@ def get_X_Y_test_train_scaled(X_scaler, Y_scaler, train_set, test_set, args, seq
   print('len train set: {}'.format(len(train_set)))
   print('len test set: {}'.format(len(test_set)))
   for i in range(len(train_set)):
-    print('i: {}'.format(i))
     this_train_set = train_set[i]
-    print(this_train_set)
     this_train_X, this_train_Y = get_X_Y(this_train_set, args, seq_output, X_scaler, Y_scaler)
     X_list_train.append(this_train_X)
     Y_list_train.append(this_train_Y)
@@ -76,15 +74,13 @@ def convert_to_2020_date(array, args):
   return new_dates
 
 def lstm(area, args, seq_output = 0):
+  np.set_printoptions(suppress=True)
+  print('-----------------------------------------------------')
   print(area.name)
-  #np.random.seed(7) need to think about when to use/not use this
-  df = area.cv_days_df_not_scaled
+  df = area.cv_days_df_not_scaled.copy()
+  df = df[[args.name_cv_days, args.name_2020_days, 'new_cases', 'new_deaths', 'total_cases', 'total_deaths']] #NATASHA USE PARSER VAR
   print(df)
-  #Convert Y-M-D to corresponding day in 2020 (e.g. Jan 2 2020 = day 2 of 2020, Dec 31 is day -1 of 2020, format needed for LSTM)
-  df[args.name_cv_days] = get_2020_days_array(df, args)
-  #Only keep desired variables for training
-  df = df[[args.name_cv_days, 'new_cases', 'new_deaths', 'total_cases', 'total_deaths']] #NATASHA USE PARSER VAR
-  
+
   #Create list of samples (dataframes)
   df_list = create_df_list(df, args, seq_output)
   #Split list of samples into training and testing sets
@@ -93,24 +89,24 @@ def lstm(area, args, seq_output = 0):
   #Scale train and test sets and split into X and Y
   scaling_set = train_set[-1].copy()
   scaling_set_X, scaling_set_Y = get_X_Y(scaling_set, args, seq_output) #0 specifies we are predicting one value not sequence
-  np.set_printoptions(suppress=True)
   X_scaler, Y_scaler = get_X_Y_scaler(scaling_set_X, scaling_set_Y)
+
   #Create arrays of training X and Y samples. Create arrays of test X and Y samples.
   final_train_X, final_train_Y, final_test_X, final_test_Y = get_X_Y_test_train_scaled(X_scaler, Y_scaler, train_set, test_set, args, seq_output)
+
+  do_hyperparam_opt = 0
+  if do_hyperparam_opt:
+    layers = 3
+    dropout_array = [0, 0.01, 0.05]
+    hidden_layer_dimensions_array = [10, 100, 200]
+    col_array = plt.cm.jet(np.linspace(0,1,len(dropout_array)))
+    lstm_hyperparam_opt(args, n_batch, final_train_X, final_train_Y, layers, hidden_layer_dimensions, dropout, dropout_array, hidden_layer_dimensions_array, epochs, col_array)
 
   #Design Network
   hidden_layer_dimensions = 100
   dropout = 0.01
   n_batch = 1
   epochs = 2
-  layers = 3
-  dropout_array = [0, 0.01, 0.05]
-  hidden_layer_dimensions_array = [10, 100, 200]
-  col_array = plt.cm.jet(np.linspace(0,1,len(dropout_array)))
-  do_hyperparam_opt = 1
-
-  if do_hyperparam_opt:
-    lstm_hyperparam_opt(args, n_batch, final_train_X, final_train_Y, layers, hidden_layer_dimensions, dropout, dropout_array, hidden_layer_dimensions_array, epochs, col_array)
 
   if seq_output == 0:
     model = Sequential()
@@ -119,48 +115,27 @@ def lstm(area, args, seq_output = 0):
     model.add(Dropout(dropout))
     model.add(Dense(1))
   else:
-    #Build model to compute errors (uses larger dropout)
-    model_error = Sequential()
-    model_error.add(Masking(mask_value = args.mask_value_lstm, batch_input_shape=(n_batch,final_train_X.shape[1], final_train_X.shape[2])))
-    model_error.add(LSTM(hidden_layer_dimensions, batch_input_shape=(n_batch,final_train_X.shape[1], final_train_X.shape[2]), stateful = True, return_sequences = True))
-    model_error.add(LSTM(hidden_layer_dimensions, batch_input_shape=(n_batch,final_train_X.shape[1], final_train_X.shape[2]), stateful = True))
-    model_error.add(Dropout(0.1))
-    model_error.add(Dense(final_train_Y.shape[1]))
-    es = EarlyStopping(monitor='val_loss', mode = 'min', verbose=1, patience=50)
-    model_error.compile(loss='mean_squared_error', optimizer = 'adam')
-    model_error.fit(final_train_X, final_train_Y, epochs=epochs, batch_size=n_batch, verbose=1, shuffle=False, validation_split=0.1, callbacks=[es])
-
-
-    #Build model for predictions
-    model = Sequential()
-    model.add(Masking(mask_value = args.mask_value_lstm, batch_input_shape=(n_batch,final_train_X.shape[1], final_train_X.shape[2])))
-    model.add(LSTM(hidden_layer_dimensions, batch_input_shape=(n_batch,final_train_X.shape[1], final_train_X.shape[2]), stateful = True, return_sequences = True))
-    model.add(LSTM(hidden_layer_dimensions, batch_input_shape=(n_batch,final_train_X.shape[1], final_train_X.shape[2]), stateful = True))
-    model.add(Dropout(dropout))
-    model.add(Dense(final_train_Y.shape[1]))
-
-    es = EarlyStopping(monitor='val_loss', mode = 'min', verbose=1, patience=50)
-    model.compile(loss='mean_squared_error', optimizer = 'adam')
-    plot_model(model, to_file = args.output_dir + '/model.png', show_shapes = True, show_layer_names = False, expand_nested = True)
-    history = model.fit(final_train_X, final_train_Y, epochs=epochs, batch_size=n_batch, verbose=1, shuffle=False, validation_split=0.1, callbacks=[es])
+    model_error, _ = build_model(args, epochs, n_batch, hidden_layer_dimensions, 0.1, final_train_X, final_train_Y)
+    model, history = build_model(args, epochs, n_batch, hidden_layer_dimensions, dropout, final_train_X, final_train_Y)
     plt.plot(history.history['loss'], color = 'blue', linestyle = 'solid',label = 'Train Set')
+    #pdb.set_trace()
     plt.plot(history.history['val_loss'], color = 'green', linestyle = 'solid', linewidth = args.linewidth, label = 'Validation Set')
-  plt.legend()
-  plt.xlabel('Epochs')
-  plt.ylabel('RMSE')
-
-  plt.savefig(args.output_dir + '/lstm_loss_final.png')
-  plt.close('all')
+    plt.legend()
+    plt.xlabel('Epochs')
+    plt.ylabel('RMSE')
+    plt.savefig(args.output_dir + '/' + area.name + 'lstm_loss_final.png')
+    plt.close('all')
 
   #Plot predictions for test and train sets
   forecasts = list()
   dates = list()
   for i,j in zip(final_train_X, final_train_Y):
     i = i.reshape(n_batch, i.shape[0], i.shape[1])
+    thisforecast = Y_scaler.inverse_transform(model.predict(i, batch_size = n_batch))
     forecasts.append(Y_scaler.inverse_transform(model.predict(i, batch_size = n_batch)))
     dates_df = pd.DataFrame(np.squeeze(i))
     original_df = pd.DataFrame(X_scaler.inverse_transform(dates_df))
-    last_day = original_df.iloc[-1][0] +1
+    last_day = round(original_df.iloc[-1][0] +1) #not sure why rounding is necessary here, but without arrays come out with different shapes
     predicted_days = np.arange(last_day, last_day + args.days_of_cv_predict)
     dates.append(predicted_days)
 
@@ -178,29 +153,30 @@ def lstm(area, args, seq_output = 0):
     forecasts_test.append(thisforecast)
     dates_df = pd.DataFrame(np.squeeze(i))
     original_df = pd.DataFrame(X_scaler.inverse_transform(dates_df))
-    last_day = original_df.iloc[-1][0] +1
+    last_day = round(original_df.iloc[-1][0] +1)
     predicted_days = np.arange(last_day, last_day + args.days_of_cv_predict)
     dates_test.append(predicted_days)
-    if n == len(final_test_X) - 1:
+    if n == len(final_test_X) - 1: #Retrieve error from last prediction
       error_forecast = Y_scaler.inverse_transform(model_error.predict(i, batch_size = n_batch))
       errors_test = np.squeeze(abs(thisforecast - error_forecast)/2)
       final_predict = np.squeeze(thisforecast)
       final_dates = np.squeeze(predicted_days)
-      rms = sqrt(mean_squared_error(np.squeeze(thisforecast),np.squeeze(Y_scaler.inverse_transform(j.reshape(-1,1)))))
-      rms = round(rms,2)
+      rms = round(sqrt(mean_squared_error(np.squeeze(thisforecast),np.squeeze(Y_scaler.inverse_transform(j.reshape(-1,1))))),2)
   plt.fill_between(convert_to_2020_date(final_dates,args), final_predict - errors_test, final_predict + errors_test, color = 'green', alpha = 0.1)
 
   forecasts = np.squeeze(forecasts)
   forecasts_test = np.squeeze(forecasts_test)
-  for n in range(len(dates)):
+  print('about to plot train predictions')
+  for n in range(len(dates)): #plot training predictions
     i = dates[n]
     j = forecasts[n]
     newdates = convert_to_2020_date(i,args)
+
     if n == 0:
       plt.plot(newdates,j, color = 'blue', label = 'Train Set', linewidth = args.linewidth, markersize = 0)
     else:
       plt.plot(newdates,j, color = 'blue', linewidth = args.linewidth, markersize = 0)
-  for n in range(len(dates_test)):
+  for n in range(len(dates_test)): #plot test predictions
     i = dates_test[n]
     j = forecasts_test[n]
     newdates = convert_to_2020_date(i,args)
@@ -215,6 +191,24 @@ def lstm(area, args, seq_output = 0):
   plt.legend()
   plt.title(area.name)
   plt.savefig(args.output_dir + '/' + area.name + '_lstm.png')
+  plt.close('all')
+
+def build_model(args, epochs, n_batch, hidden_layer_dimensions, dropout, final_train_X, final_train_Y):
+  patience = 50
+  validation_split = 0.1
+  model = Sequential()
+  model.add(Masking(mask_value = args.mask_value_lstm, batch_input_shape=(n_batch,final_train_X.shape[1], final_train_X.shape[2])))
+  model.add(LSTM(hidden_layer_dimensions, batch_input_shape=(n_batch,final_train_X.shape[1], final_train_X.shape[2]), stateful = True, return_sequences = True))
+  model.add(LSTM(hidden_layer_dimensions, batch_input_shape=(n_batch,final_train_X.shape[1], final_train_X.shape[2]), stateful = True))
+  model.add(Dropout(dropout))
+  model.add(Dense(final_train_Y.shape[1]))
+
+  es = EarlyStopping(monitor='val_loss', mode = 'min', verbose=1, patience=patience)
+  model.compile(loss='mean_squared_error', optimizer = 'adam')
+
+  history = model.fit(final_train_X, final_train_Y, epochs=epochs, batch_size=n_batch, verbose=1, shuffle=False, validation_split=validation_split, callbacks=[es])
+
+  return model, history
 
 def lstm_hyperparam_opt(args, n_batch, final_train_X, final_train_Y, layers, hidden_layer_dimensions, dropout, dropout_array, hidden_layer_dimensions_array, epochs, col_array):
   #Check number of layers--------------------
@@ -289,3 +283,4 @@ def lstm_hyperparam_opt(args, n_batch, final_train_X, final_train_Y, layers, hid
   plt.close('all')
 
   return
+

@@ -42,6 +42,7 @@ if __name__ == '__main__':
   parser.add_argument('-name_new_cases', '--name_new_cases', type = str, dest = 'name_new_cases', default = 'new_cases', help = 'name of variable in country level file for new cases per day')
   parser.add_argument('-name_new_deaths', '--name_new_deaths', type = str, dest = 'name_new_deaths', default = 'new_deaths', help = 'name of variable in country level file for new deaths per day')
   parser.add_argument('-name_cv_days', '--name_cv_days', type = str, dest = 'name_cv_days', default = 'cv_days', help = 'name of cv outbreak days')
+  parser.add_argument('-name_2020_days', '--name_2020_days', type = str, dest = 'name_2020_days', default = 'days_2020', help = 'name of variable for 2020 days')
   parser.add_argument('-predict_var', '--predict_var', type = str, dest = 'predict_var', default = 'total_deaths', help = 'number of variable used to determine where to start counting cv days, should be whichever variable in your dataset you believe is the most accurate')
   parser.add_argument('-name_fips', '--name_fips', type = str, dest = 'name_fips', default = 'fips', help = 'name of fips variable in input data')
   parser.add_argument('-name_deaths_per_mil', '--name_deaths_per_mil', type = str, dest = 'name_deaths_per_mil', default = 'deaths_per_mil', help = 'name of deaths_per_mil variable')
@@ -91,6 +92,7 @@ if __name__ == '__main__':
   counties_obj_list = list() #where all US county objects stored
   area = 0 #set land area to 0 as default
 
+
   #Create dataframe of county, state, country land areas to add to area objects ------------------------------
   area_name = 'Geographic area'
   land_area_name = 'Area in square miles - Land area'
@@ -102,21 +104,21 @@ if __name__ == '__main__':
   #County Level Land Area Dataframes----
   county_area_df = pd.read_csv(args.county_area_file, encoding='latin-1')
   #Extract County Name from area_name variable (which includes country and state, which we do not want here)
-  county_area_df['State'] = county_area_df[area_name].str.split(' - ').str[1]
-  county_area_df[args.area_var_name] = county_area_df[area_name].str.rsplit(' - ',1).str[-1]
+  county_area_df.loc[:,'State'] = county_area_df[area_name].str.split(' - ').str[1]
+  county_area_df.loc[:,args.area_var_name] = county_area_df[area_name].str.rsplit(' - ',1).str[-1]
   #Rename Land Area Variable, because the one in the file is verbose
-  county_area_df[new_land_area_name] = county_area_df[land_area_name] 
+  county_area_df.loc[:,new_land_area_name] = county_area_df[land_area_name] 
   #Save only Area Name and Land Area to Area Dataframe
   county_area_df = county_area_df[[args.area_var_name, new_land_area_name, 'State']]
   #Remove Entries that are not counties (e.g. Baja Municipio)
   county_area_df = county_area_df[county_area_df[args.area_var_name].str.contains('County')]
-
+  print('counties')
   #State Level Land Area Dataframes----
   state_area_df = pd.read_csv(args.state_area_file, encoding='latin-1')
   #Extract State Name from area_name variable (exclude country name)
-  state_area_df[args.area_var_name] = state_area_df[area_name].str.split().str[3]
+  state_area_df.loc[:,args.area_var_name] = state_area_df[area_name].str.split().str[3]
   #Rename Land Area Variable, because the one in the file is verbose
-  state_area_df[new_land_area_name] = state_area_df[land_area_name]
+  state_area_df.loc[:,new_land_area_name] = state_area_df[land_area_name]
   #Save only Area Name and Land Area to Area Dataframe
   state_area_df = state_area_df[[args.area_var_name, new_land_area_name]]
   #Remove Entries that are not states (e.g. counties)
@@ -125,9 +127,9 @@ if __name__ == '__main__':
   #Country Level Land Area Dataframes----
   country_area_df = pd.read_csv(args.country_area_file, encoding='latin-1')
   #Rename area name for consistency with other land area dataframes
-  country_area_df[args.area_var_name] = country_area_df[country_area_name]
+  country_area_df.loc[:,args.area_var_name] = country_area_df[country_area_name]
   #Convert land area to miles squared as that is what is saved for US States and Counties
-  country_area_df[new_land_area_name] = country_area_df[year_country_land_area]*mile_to_km_squared
+  country_area_df.loc[:,new_land_area_name] = country_area_df[year_country_land_area]*mile_to_km_squared
   #Save only Area Name and Land Area to Area Dataframe
   country_area_df = country_area_df[[args.area_var_name, new_land_area_name]]
 
@@ -148,9 +150,12 @@ if __name__ == '__main__':
       if(args.add_land_area):
         area = land_area_df[land_area_df[args.area_var_name] == country]
         area = area.iloc[0][new_land_area_name]
-        this_country_df[args.population_density_name] = population/area
+        this_country_df.loc[:,args.population_density_name] = population/area
       #Calculate and add deaths_per_mil and population density variables to dataframe
-      this_country_df[args.name_deaths_per_mil] = args.cv_day_thres*this_country_df[args.name_total_deaths].copy().div(population)
+      print('adding columns')
+      this_country_df.loc[:,args.name_deaths_per_mil] = args.cv_day_thres*this_country_df[args.name_total_deaths].copy().div(population)
+      this_country_df.loc[:,args.name_2020_days] = get_2020_days_array(this_country_df, args)
+      print('done')
       #Calculate CV-day dataframe per million people and for entire population
       cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_country_df, population, args)
       #Create area object for selected country and add to area_obj_list
@@ -175,15 +180,16 @@ if __name__ == '__main__':
       if(args.add_land_area):
         area = land_area_df[land_area_df[args.area_var_name] == state]
         area = area.iloc[0][new_land_area_name]
-        this_state_df[args.population_density_name] = population/area
+        this_state_df.loc[:,args.population_density_name] = population/area
       #Sort Values by Date in case they are mixed
       this_state_df = this_state_df.sort_values(by=[args.date_name])
+      this_state_df.loc[:,args.name_2020_days] = get_2020_days_array(this_state_df, args)
       #Calculate new cases and deaths based on total cases and deaths
-      this_state_df[args.name_new_cases] = this_state_df[args.name_total_cases].diff().fillna(0)
-      this_state_df[args.name_new_deaths] = this_state_df[args.name_total_deaths].diff().fillna(0)
+      this_state_df.loc[:,args.name_new_cases] = this_state_df[args.name_total_cases].diff().fillna(0)
+      this_state_df.loc[:,args.name_new_deaths] = this_state_df[args.name_total_deaths].diff().fillna(0)
       #this_state_df.fillna(0, inplace = True)
       #Calculate and add deaths_per_mil variable to dataframe
-      this_state_df[args.name_deaths_per_mil] = args.cv_day_thres*this_state_df[args.name_total_deaths].div(population)
+      this_state_df.loc[:,args.name_deaths_per_mil] = args.cv_day_thres*this_state_df[args.name_total_deaths].div(population)
       #Calculate CV-day dataframe per million people and for entire population
       cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_state_df, population, args)
       #Create area object for selected country and add to area_obj_list
@@ -202,17 +208,18 @@ if __name__ == '__main__':
   nyc_dictionary = {'New York': 36061, 'Kings': 36047, 'Queens': 36081, 'Bronx': 36005, 'Richmond': 36085}
   for county in nyc_dictionary:
     this_county_df = NYC_dataframe.copy()
-    this_county_df[args.name_fips] = nyc_dictionary[county]
-    this_county_df[args.county_var_name] = county
-    this_county_df[args.area_var_name] = 'New York'
+    this_county_df.loc[:,args.name_fips] = nyc_dictionary[county]
+    this_county_df.loc[:,args.county_var_name] = county
+    this_county_df.loc[:,args.area_var_name] = 'New York'
     #Sort entries by date
     #Calculate Deaths per million people and add to dataframe
-    this_county_df[args.name_deaths_per_mil] = args.cv_day_thres*this_county_df[args.name_total_deaths].div(population)
+    this_county_df.loc[:,args.name_deaths_per_mil] = args.cv_day_thres*this_county_df[args.name_total_deaths].div(population)
     this_county_df = this_county_df.sort_values(by=[args.date_name])
+    this_county_df.loc[:,args.name_2020_days] = get_2020_days_array(this_county_df, args)
     this_county_df = this_county_df.dropna()
     #Calculate and add new cases and deaths to dataframe
-    this_county_df[args.name_new_cases] = this_county_df[args.name_total_cases].diff().fillna(0)
-    this_county_df[args.name_new_deaths] = this_county_df[args.name_total_deaths].diff().fillna(0)
+    this_county_df.loc[:,args.name_new_cases] = this_county_df[args.name_total_cases].diff().fillna(0)
+    this_county_df.loc[:,args.name_new_deaths] = this_county_df[args.name_total_deaths].diff().fillna(0)
     #this_county_df.fillna(0, inplace = True)
     #Calculate CV-day dataframe per million people and for entire population
     cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_county_df, population, args)
@@ -241,18 +248,19 @@ if __name__ == '__main__':
         area = land_area_df[land_area_df[args.area_var_name].str.contains(county)]
         area = area[area['State'] == state]
         area = area.iloc[0][new_land_area_name]
-        this_county_df[args.population_density_name] = population/area
+        this_county_df.loc[:,args.population_density_name] = population/area
 
       #Calculate Deaths per million people and add to dataframe
-      this_county_df[args.name_deaths_per_mil] = args.cv_day_thres*this_county_df[args.name_total_deaths].div(population)
+      this_county_df.loc[:,args.name_deaths_per_mil] = args.cv_day_thres*this_county_df[args.name_total_deaths].div(population)
 
       if this_county_df.empty != True:
         #Sort entries by date
         this_county_df = this_county_df.sort_values(by=[args.date_name])
+        this_county_df.loc[:,args.name_2020_days] = get_2020_days_array(this_county_df, args)
         this_county_df = this_county_df.dropna()
         #Calculate and add new cases and deaths to dataframe
-        this_county_df[args.name_new_cases] = this_county_df[args.name_total_cases].diff().fillna(0)
-        this_county_df[args.name_new_deaths] = this_county_df[args.name_total_deaths].diff().fillna(0)
+        this_county_df.loc[:,args.name_new_cases] = this_county_df[args.name_total_cases].diff().fillna(0)
+        this_county_df.loc[:,args.name_new_deaths] = this_county_df[args.name_total_deaths].diff().fillna(0)
         #this_county_df.fillna(0, inplace = True)
         #Calculate CV-day dataframe per million people and for entire population
         cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(this_county_df, population, args)
@@ -275,10 +283,11 @@ if __name__ == '__main__':
   #Rename dataframe columns for consistency with other dataframes
   hubei_df = hubei_df.rename(columns = {'ObservationDate': args.date_name, 'Province/State': args.area_var_name, 'Confirmed': args.name_total_cases, 'Deaths': args.name_total_deaths})
   #Calculate new cases and deaths and add to dataframe
-  hubei_df[args.name_new_cases] = hubei_df[args.name_total_cases].diff().fillna(0)
-  hubei_df[args.name_new_deaths] = hubei_df[args.name_total_deaths].diff().fillna(0)
+  hubei_df.loc[:,args.name_2020_days] = get_2020_days_array(hubei_df, args)
+  hubei_df.loc[:,args.name_new_cases] = hubei_df[args.name_total_cases].diff().fillna(0)
+  hubei_df.loc[:,args.name_new_deaths] = hubei_df[args.name_total_deaths].diff().fillna(0)
   #Calculate Deaths per million people and add to dataframe
-  hubei_df[args.name_deaths_per_mil] = args.cv_day_thres*hubei_df[args.name_total_deaths].div(hubei_pop)
+  hubei_df.loc[:,args.name_deaths_per_mil] = args.cv_day_thres*hubei_df[args.name_total_deaths].div(hubei_pop)
   #Calculate CV-day dataframe per million people and for entire population
   cv_days_df_per_mil, cv_days_df_not_scaled = get_cv_days_df(hubei_df, hubei_pop, args)
   #Create Hubei area object and add to area_obj_list

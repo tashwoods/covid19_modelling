@@ -68,8 +68,6 @@ def get_X_Y(df, args, seq_output = 0, X_scaler=0, Y_scaler=0):
       train.loc[len(train)] = args.max_scaling_lstm*train.max()
       train = train.sort_values(args.name_cv_days)
       train = train.reset_index(drop=True)
-      print(train)
-      print(test)
       return train, test
 
 def get_2020_days_array(df, args):
