@@ -47,8 +47,12 @@ def get_X_Y(df, args, seq_output = 0, X_scaler=0, Y_scaler=0):
     if X_scaler != 0 and Y_scaler != 0:
       Y = df[args.predict_var]
       #Standardize X and Y
-      scaled_X = X_scaler.transform(train)
-      scaled_Y = Y_scaler.transform(test)
+      if X_scaler != -1 and Y_scaler != -1:
+        scaled_X = X_scaler.transform(train)
+        scaled_Y = Y_scaler.transform(test)
+      else:
+        scaled_X = np.array(train)
+        scaled_Y = np.array(test)
       #Pad X matrices to have same length
       n_rows_X = scaled_X.shape[0]
       n_rows_to_add = args.lstm_seq_length - n_rows_X
@@ -57,7 +61,7 @@ def get_X_Y(df, args, seq_output = 0, X_scaler=0, Y_scaler=0):
       padded_scaled_X = np.concatenate((pad_rows, scaled_X))
       #padded_scaled_X = scaled_X #fix this
       return padded_scaled_X, scaled_Y
-    else:
+    elif X_scaler == 0 and Y_scaler == 0:
       #Set min values of inputs to zero and maxes to max_Scaling_lstm*max
       #Test Set
       test.iloc[0] = [0] #this changes the value in df!!! Be careful with copies!
@@ -68,6 +72,7 @@ def get_X_Y(df, args, seq_output = 0, X_scaler=0, Y_scaler=0):
       train.loc[len(train)] = args.max_scaling_lstm*train.max()
       train = train.sort_values(args.name_cv_days)
       train = train.reset_index(drop=True)
+
       return train, test
 
 def get_2020_days_array(df, args):

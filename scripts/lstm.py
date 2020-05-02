@@ -1,9 +1,5 @@
 from imported_libraries import *
 
-def lstm_combined(df, args):
-  #this is still under development
-  return
-
 def create_df_list(df, args, seq_output):
   df_list = list()
   for i in range(len(df.index)):
@@ -22,7 +18,7 @@ def get_X_Y_scaler(scaling_set_X, scaling_set_Y, seq_output = 0):
   Y_scaler = Y_scaler.fit(scaling_set_Y)
   return X_scaler, Y_scaler
 
-def get_X_Y_test_train_scaled(X_scaler, Y_scaler, train_set, test_set, args, seq_output):
+def get_X_Y_test_train_scaled(X_scaler, Y_scaler, train_set, test_set, args, seq_output, scaled = 1):
   X_list_train = list()
   Y_list_train = list()
   print('len train set: {}'.format(len(train_set)))
@@ -73,14 +69,7 @@ def convert_to_2020_date(array, args):
     new_dates.append(real_date.date())
   return new_dates
 
-def lstm(area, args, seq_output = 0):
-  np.set_printoptions(suppress=True)
-  print('-----------------------------------------------------')
-  print(area.name)
-  df = area.cv_days_df_not_scaled.copy()
-  df = df[[args.name_cv_days, args.name_2020_days, 'new_cases', 'new_deaths', 'total_cases', 'total_deaths']] #NATASHA USE PARSER VAR
-  print(df)
-
+def get_train_test_X_Y(df, args, seq_output, X_scaler = -1, Y_scaler = -1):
   #Create list of samples (dataframes)
   df_list = create_df_list(df, args, seq_output)
   #Split list of samples into training and testing sets
@@ -89,10 +78,76 @@ def lstm(area, args, seq_output = 0):
   #Scale train and test sets and split into X and Y
   scaling_set = train_set[-1].copy()
   scaling_set_X, scaling_set_Y = get_X_Y(scaling_set, args, seq_output) #0 specifies we are predicting one value not sequence
-  X_scaler, Y_scaler = get_X_Y_scaler(scaling_set_X, scaling_set_Y)
+  if X_scaler == -1 and Y_scaler == -1:
+    X_scaler, Y_scaler = get_X_Y_scaler(scaling_set_X, scaling_set_Y)
+  
 
   #Create arrays of training X and Y samples. Create arrays of test X and Y samples.
   final_train_X, final_train_Y, final_test_X, final_test_Y = get_X_Y_test_train_scaled(X_scaler, Y_scaler, train_set, test_set, args, seq_output)
+  return final_train_X, final_train_Y, final_test_X, final_test_Y, X_scaler, Y_scaler
+
+def get_reshaped_X(input_X, n_batch, X_scaler):
+  i = input_X.reshape(n_batch, input_X.shape[0], input_X.shape[1])
+  output_df = pd.DataFrame(np.squeeze(input_X))
+  original_df = pd.DataFrame(X_scaler.inverse_transform(output_df))
+  return original_df
+
+def lstm_combined(area_obj_list, args):
+  #Combine all test dataframes to determine correct X_scaler and Y_scalers
+  seq_output = 1 #makes lstm predict sequences
+  list_df_train = list()
+  for i in range(len(area_obj_list)):
+    area = area_obj_list[i]
+    df = area.cv_days_df_not_scaled.copy()
+    df.loc[:,'area_number'] = i #Natasha make this longitude and latitude eventually
+    df = df[[args.name_cv_days, args.name_2020_days, args.predict_var, 'new_cases', 'new_deaths', 'total_cases', 'area_number']] #NATASHA USE PARSER VAR
+    list_df_train.append(df.iloc[:round(args.train_set_percentage*len(df.index))].copy())
+  all_train_dfs = pd.concat(list_df_train)
+  final_train_X, final_train_Y, final_test_X, final_test_Y, X_scaler, Y_scaler = get_train_test_X_Y(df, args, seq_output) #0 to say not combined lstm 
+
+  #create scaled train and test samples
+  max_samples = 10
+  train_samples = list()
+  for i in range(max_samples):
+    print('-----------------------------')
+    print(i)
+    df_list = list()
+    for area in list_df_train:
+      print(len(area.index))
+      if i < len(area.index):
+        df_list.append(area.loc[:i].copy())
+      else:
+        df_list.append(area.copy())
+    this_day = pd.concat(df_list) 
+    print(this_day)
+
+      
+
+    
+
+      
+  return
+
+def build_model(args, epochs, n_batch, hidden_layer_dimensions, dropout, final_train_X, final_train_Y):
+  patience = 50
+  validation_split = 0.1
+  model = Sequential()
+  model.add(Masking(mask_value = args.mask_value_lstm, batch_input_shape=(n_batch,final_train_X.shape[1], final_train_X.shape[2])))
+  model.add(LSTM(hidden_layer_dimensions, batch_input_shape=(n_batch,final_train_X.shape[1], final_train_X.shape[2]), stateful = True, return_sequences = True))
+  model.add(LSTM(hidden_layer_dimensions, batch_input_shape=(n_batch,final_train_X.shape[1], final_train_X.shape[2]), stateful = True))
+  model.add(Dropout(dropout))
+  model.add(Dense(final_train_Y.shape[1]))
+  es = EarlyStopping(monitor='val_loss', mode = 'min', verbose=1, patience=patience)
+  model.compile(loss='mean_squared_error', optimizer = 'adam')
+  history = model.fit(final_train_X, final_train_Y, epochs=epochs, batch_size=n_batch, verbose=1, shuffle=False, validation_split=validation_split, callbacks=[es])
+  return model, history
+
+
+def lstm(area, args, seq_output = 0):
+  np.set_printoptions(suppress=True)
+  df = area.cv_days_df_not_scaled.copy()
+  df = df[[args.name_cv_days, args.name_2020_days, 'new_cases', 'new_deaths', 'total_cases', 'total_deaths']] #NATASHA USE PARSER VAR
+  final_train_X, final_train_Y, final_test_X, final_test_Y, X_scaler, Y_scaler = get_train_test_X_Y(df, args, seq_output) #0 to say not combined lstm 
 
   do_hyperparam_opt = 0
   if do_hyperparam_opt:
@@ -108,17 +163,16 @@ def lstm(area, args, seq_output = 0):
   n_batch = 1
   epochs = 2
 
-  if seq_output == 0:
+  if seq_output == 0: # to predict one day out
     model = Sequential()
     model.add(Masking(mask_value = args.mask_value_lstm, input_shape=(final_train_X.shape[1], final_train_X.shape[2])))
     model.add(LSTM(hidden_layer_dimensions, activation = 'relu', input_shape = (final_train_X.shape[1], final_train_X.shape[2])))
     model.add(Dropout(dropout))
     model.add(Dense(1))
-  else:
+  else: # to predict cv_days_predict number of days out
     model_error, _ = build_model(args, epochs, n_batch, hidden_layer_dimensions, 0.1, final_train_X, final_train_Y)
     model, history = build_model(args, epochs, n_batch, hidden_layer_dimensions, dropout, final_train_X, final_train_Y)
     plt.plot(history.history['loss'], color = 'blue', linestyle = 'solid',label = 'Train Set')
-    #pdb.set_trace()
     plt.plot(history.history['val_loss'], color = 'green', linestyle = 'solid', linewidth = args.linewidth, label = 'Validation Set')
     plt.legend()
     plt.xlabel('Epochs')
@@ -130,11 +184,10 @@ def lstm(area, args, seq_output = 0):
   forecasts = list()
   dates = list()
   for i,j in zip(final_train_X, final_train_Y):
+    original_df = get_reshaped_X(i, n_batch, X_scaler)
     i = i.reshape(n_batch, i.shape[0], i.shape[1])
     thisforecast = Y_scaler.inverse_transform(model.predict(i, batch_size = n_batch))
     forecasts.append(Y_scaler.inverse_transform(model.predict(i, batch_size = n_batch)))
-    dates_df = pd.DataFrame(np.squeeze(i))
-    original_df = pd.DataFrame(X_scaler.inverse_transform(dates_df))
     last_day = round(original_df.iloc[-1][0] +1) #not sure why rounding is necessary here, but without arrays come out with different shapes
     predicted_days = np.arange(last_day, last_day + args.days_of_cv_predict)
     dates.append(predicted_days)
@@ -148,11 +201,10 @@ def lstm(area, args, seq_output = 0):
   for n in range(len(final_test_X)):
     i = final_test_X[n]
     j = final_train_Y[n]
+    original_df = get_reshaped_X(i, n_batch, X_scaler)
     i = i.reshape(n_batch, i.shape[0], i.shape[1])
     thisforecast = Y_scaler.inverse_transform(model.predict(i, batch_size = n_batch))
     forecasts_test.append(thisforecast)
-    dates_df = pd.DataFrame(np.squeeze(i))
-    original_df = pd.DataFrame(X_scaler.inverse_transform(dates_df))
     last_day = round(original_df.iloc[-1][0] +1)
     predicted_days = np.arange(last_day, last_day + args.days_of_cv_predict)
     dates_test.append(predicted_days)
@@ -193,22 +245,7 @@ def lstm(area, args, seq_output = 0):
   plt.savefig(args.output_dir + '/' + area.name + '_lstm.png')
   plt.close('all')
 
-def build_model(args, epochs, n_batch, hidden_layer_dimensions, dropout, final_train_X, final_train_Y):
-  patience = 50
-  validation_split = 0.1
-  model = Sequential()
-  model.add(Masking(mask_value = args.mask_value_lstm, batch_input_shape=(n_batch,final_train_X.shape[1], final_train_X.shape[2])))
-  model.add(LSTM(hidden_layer_dimensions, batch_input_shape=(n_batch,final_train_X.shape[1], final_train_X.shape[2]), stateful = True, return_sequences = True))
-  model.add(LSTM(hidden_layer_dimensions, batch_input_shape=(n_batch,final_train_X.shape[1], final_train_X.shape[2]), stateful = True))
-  model.add(Dropout(dropout))
-  model.add(Dense(final_train_Y.shape[1]))
 
-  es = EarlyStopping(monitor='val_loss', mode = 'min', verbose=1, patience=patience)
-  model.compile(loss='mean_squared_error', optimizer = 'adam')
-
-  history = model.fit(final_train_X, final_train_Y, epochs=epochs, batch_size=n_batch, verbose=1, shuffle=False, validation_split=validation_split, callbacks=[es])
-
-  return model, history
 
 def lstm_hyperparam_opt(args, n_batch, final_train_X, final_train_Y, layers, hidden_layer_dimensions, dropout, dropout_array, hidden_layer_dimensions_array, epochs, col_array):
   #Check number of layers--------------------

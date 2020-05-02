@@ -213,6 +213,7 @@ if __name__ == '__main__':
     this_county_df.loc[:,args.area_var_name] = 'New York'
     #Sort entries by date
     #Calculate Deaths per million people and add to dataframe
+    population = 1 #fix later natasha
     this_county_df.loc[:,args.name_deaths_per_mil] = args.cv_day_thres*this_county_df[args.name_total_deaths].div(population)
     this_county_df = this_county_df.sort_values(by=[args.date_name])
     this_county_df.loc[:,args.name_2020_days] = get_2020_days_array(this_county_df, args)
@@ -331,7 +332,7 @@ if(args.do_lstm == 1):
     lstm(area_obj_list[i], args, 1)
 
 if(args.do_combined_lstm == 1):
-  lstm_combined(area_obj_list[0], args)
+  lstm_combined(area_obj_list, args)
 
 if(args.plot_growth_rates == 1):
   growth_rates(area_obj_list, 'linear', args.name_cv_days, 'total_deaths', args, 0)
