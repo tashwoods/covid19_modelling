@@ -105,10 +105,12 @@ def lstm_combined(area_obj_list, args):
   all_train_dfs = pd.concat(list_df_train)
   final_train_X, final_train_Y, final_test_X, final_test_Y, X_scaler, Y_scaler = get_train_test_X_Y(df, args, seq_output) #0 to say not combined lstm 
 
-  #create scaled train and test samples
+  #create scaled train and test samples that are grouped by number of days 
   max_samples = 10
   train_samples = list()
-  for i in range(max_samples):
+  train_samples_X = list()
+  train_samples_Y = list()
+  for i in range(5,max_samples): #should rewrite this so it goes backward from the current day some number of days instead of having the same number of outbreak days per area
     print('-----------------------------')
     print(i)
     df_list = list()
@@ -116,10 +118,21 @@ def lstm_combined(area_obj_list, args):
       print(len(area.index))
       if i < len(area.index):
         df_list.append(area.loc[:i].copy())
-      else:
+      else: #and pad sequence (to be added)
         df_list.append(area.copy())
+      #separate into X and Y
+      train_samples_X.append(area.loc[:, df.columns != args.predict_var])
+      train_samples_Y.append(area[[args.predict_var]])
     this_day = pd.concat(df_list) 
-    print(this_day)
+    train_samples.append(this_day)
+
+
+    print('X')
+    print(train_samples_X)
+    print('Y')
+    print(train_samples_Y)
+
+      
 
       
 
